@@ -66,9 +66,3 @@ If you just want to run it with Python installed:
 2. Run: pip install flask flask-cors pandas numpy scikit-learn joblib requests
 3. Run: python launcher.py
 4. Browser opens automatically!
-
-
-================================================================================
- Built for VEX Think Award
- Good luck at competition! 🏆
-================================================================================
