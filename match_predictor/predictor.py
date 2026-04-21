@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import math
 import time
 from datetime import datetime
 from flask import Flask, jsonify, request
@@ -21,6 +22,8 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), 'cache')
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config.json')
 SEASON_CACHE_FILE = os.path.join(CACHE_DIR, 'season_history.json')
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+
+fetch_progress = {"status": "idle", "percent": 0, "detail": ""}
 
 def load_config():
     with open(CONFIG_FILE, 'r') as f:
@@ -53,7 +56,10 @@ def fetch_season_history(teams):
     
     # We will fetch team IDs first
     team_ids = {}
-    for team in teams:
+    fetch_progress["status"] = "fetching_ids"
+    for i, team in enumerate(teams):
+        fetch_progress["detail"] = f"Finding Team ID for {team} ({i+1}/{len(teams)})"
+        fetch_progress["percent"] = int((i / len(teams)) * 20)  # ID fetching is 20% of work
         tid = get_team_id(team)
         if tid:
             team_ids[team] = tid
@@ -61,7 +67,11 @@ def fetch_season_history(teams):
         else:
             print(f"Could not find ID for {team}")
             
-    for team, tid in team_ids.items():
+    fetch_progress["status"] = "fetching_matches"
+    total_teams = len(team_ids)
+    for i, (team, tid) in enumerate(team_ids.items()):
+        fetch_progress["detail"] = f"Downloading season history for {team} ({i+1}/{total_teams})"
+        fetch_progress["percent"] = 20 + int((i / total_teams) * 80)
         print(f"Fetching matches for {team}...")
         matches = []
         page = 1
@@ -90,6 +100,9 @@ def fetch_season_history(teams):
     
     with open(SEASON_CACHE_FILE, 'w') as f:
         json.dump(history, f, indent=2)
+    fetch_progress["status"] = "done"
+    fetch_progress["percent"] = 100
+    fetch_progress["detail"] = "Cache complete."
     return history
 
 def fetch_live_event_data(event_id, division_id):
@@ -202,41 +215,89 @@ def get_predictions():
     else:
         season_history = fetch_season_history(unique_teams)
         
+    fetch_progress["status"] = "live_data"
+    fetch_progress["detail"] = "Fetching live Worlds data..."
+    
     # Fetch live Worlds data
     live_matches = fetch_live_event_data(config['worlds_event_id'], config['worlds_division_id'])
     
-    # Calculate current ratings
+    fetch_progress["status"] = "calculating"
+    fetch_progress["detail"] = "Calculating TrueSkill predictions..."
     ratings = calculate_ratings(season_history, live_matches)
     
     predictions = []
     
-    # Normalize mu to a 0-100 power rating scale for display purposes
-    # A starting mu is 25. High tier is 35+.
+    # Collect all mu values for the teams in the schedule to build a percentile scale
+    schedule_teams = get_unique_teams(config['matches'])
+    schedule_mus = []
+    for t in schedule_teams:
+        r = ratings.get(t)
+        if r:
+            schedule_mus.append(r.mu)
+    
+    mu_min = min(schedule_mus) if schedule_mus else 15
+    mu_max = max(schedule_mus) if schedule_mus else 50
+    mu_range = mu_max - mu_min if mu_max > mu_min else 1
+    
     def to_power_rating(mu):
-        # Scale: 25 -> 50, 40 -> 100
-        val = (mu - 10) * 3.33
+        # Percentile-based: maps the lowest-rated schedule team to ~5
+        # and the highest-rated to ~99, with everyone else spread between
+        val = ((mu - mu_min) / mu_range) * 94 + 5
         return max(0, min(100, round(val, 1)))
+    
+    def win_probability(team_a_mus, team_a_sigmas, team_b_mus, team_b_sigmas):
+        """
+        Calculate the probability that alliance A beats alliance B using
+        the TrueSkill Gaussian model. This accounts for both skill (mu)
+        and uncertainty (sigma).
+        """
+        # We double the beta (randomness factor) for PREDICTIONS.
+        # While 4.1667 is mathematically optimal for tracking true skill changes,
+        # VEX matches have high "chaos" (disconnects, tipping, auto fails).
+        # A higher beta flattens the curve, so a massive skill gap gives 
+        # a realistic 85-90% confidence instead of an unrealistic 99-100%.
+        prediction_beta = 4.1667 * 2.5 
+        
+        # Calculate average skill and combined uncertainty for each alliance
+        a_mu = sum(team_a_mus) / len(team_a_mus)
+        a_sigma = sum(s**2 for s in team_a_sigmas)**0.5 / len(team_a_sigmas)
+        
+        b_mu = sum(team_b_mus) / len(team_b_mus)
+        b_sigma = sum(s**2 for s in team_b_sigmas)**0.5 / len(team_b_sigmas)
+        
+        # c is the total uncertainty in the match outcome (including game randomness beta)
+        c = (2 * prediction_beta**2 + a_sigma**2 + b_sigma**2)**0.5
+        
+        # t is the normalized skill difference
+        t = (a_mu - b_mu) / c
+        
+        # Use the cumulative normal distribution via math.erf
+        prob = 0.5 * (1 + math.erf(t / 2**0.5))
+        return prob
         
     for match in config['matches']:
         r1, r2 = match['red'][0], match['red'][1]
         b1, b2 = match['blue'][0], match['blue'][1]
         
-        r1_mu = ratings.get(r1, TrueSkillRating()).mu
-        r2_mu = ratings.get(r2, TrueSkillRating()).mu
-        b1_mu = ratings.get(b1, TrueSkillRating()).mu
-        b2_mu = ratings.get(b2, TrueSkillRating()).mu
+        r1_r = ratings.get(r1, TrueSkillRating())
+        r2_r = ratings.get(r2, TrueSkillRating())
+        b1_r = ratings.get(b1, TrueSkillRating())
+        b2_r = ratings.get(b2, TrueSkillRating())
         
-        red_power = r1_mu + r2_mu
-        blue_power = b1_mu + b2_mu
+        # Win probability using proper TrueSkill math
+        red_win_prob = win_probability(
+            [r1_r.mu, r2_r.mu], [r1_r.sigma, r2_r.sigma],
+            [b1_r.mu, b2_r.mu], [b1_r.sigma, b2_r.sigma]
+        )
         
-        total_power = red_power + blue_power
-        if total_power == 0: total_power = 1 # avoid div by zero
-        
-        red_conf = round((red_power / total_power) * 100)
+        red_conf = round(red_win_prob * 100)
         blue_conf = 100 - red_conf
         
-        winner = "Red" if red_conf > 50 else "Blue" if blue_conf > 50 else "Tie"
+        winner = "Red" if red_conf > 50 else "Blue" if blue_conf > 50 else "Toss-Up"
         conf = max(red_conf, blue_conf)
+        
+        red_power_sum = r1_r.mu + r2_r.mu
+        blue_power_sum = b1_r.mu + b2_r.mu
         
         predictions.append({
             "match": match['name'],
@@ -249,22 +310,28 @@ def get_predictions():
             "blue_conf": blue_conf,
             "details": {
                 "red_ratings": {
-                    r1: to_power_rating(r1_mu),
-                    r2: to_power_rating(r2_mu)
+                    r1: to_power_rating(r1_r.mu),
+                    r2: to_power_rating(r2_r.mu)
                 },
                 "blue_ratings": {
-                    b1: to_power_rating(b1_mu),
-                    b2: to_power_rating(b2_mu)
+                    b1: to_power_rating(b1_r.mu),
+                    b2: to_power_rating(b2_r.mu)
                 },
-                "explanation": f"Red Alliance combined TrueSkill mu is {red_power:.1f}. Blue Alliance combined TrueSkill mu is {blue_power:.1f}. " + 
-                               (f"Red is favored by {red_power - blue_power:.1f} points." if winner == "Red" else f"Blue is favored by {blue_power - red_power:.1f} points.")
+                "explanation": f"Red Alliance combined TrueSkill: {red_power_sum:.1f} (win prob {red_conf}%). Blue Alliance combined TrueSkill: {blue_power_sum:.1f} (win prob {blue_conf}%). " + 
+                               (f"Red is favored by {red_power_sum - blue_power_sum:.1f} skill points." if winner == "Red" else f"Blue is favored by {blue_power_sum - red_power_sum:.1f} skill points." if winner == "Blue" else "This match is essentially a coin flip.")
             }
         })
         
+    fetch_progress["status"] = "idle"
+    
     return jsonify({
         "status": "success",
         "predictions": predictions
     })
+
+@app.route('/api/progress', methods=['GET'])
+def get_progress():
+    return jsonify(fetch_progress)
 
 if __name__ == '__main__':
     print("Match Predictor API running on http://127.0.0.1:5001")
