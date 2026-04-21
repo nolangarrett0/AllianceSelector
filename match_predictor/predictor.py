@@ -224,12 +224,15 @@ def get_predictions():
     last_played = "None"
     played_matches = []
     for m in live_matches:
-        alliances = m.get('alliances', [])
-        alliance_dict = {a.get('color'): a for a in alliances} if isinstance(alliances, list) else alliances
-        r_score = alliance_dict.get('red', {}).get('score', 0)
-        b_score = alliance_dict.get('blue', {}).get('score', 0)
-        if r_score != 0 or b_score != 0:
+        if m.get('started'):
             played_matches.append(m['name'])
+        else:
+            alliances = m.get('alliances', [])
+            alliance_dict = {a.get('color'): a for a in alliances} if isinstance(alliances, list) else alliances
+            r_score = alliance_dict.get('red', {}).get('score', 0)
+            b_score = alliance_dict.get('blue', {}).get('score', 0)
+            if r_score != 0 or b_score != 0:
+                played_matches.append(m['name'])
             
     if played_matches:
         last_played = played_matches[-1]
