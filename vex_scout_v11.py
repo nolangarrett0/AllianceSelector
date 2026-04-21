@@ -1589,8 +1589,8 @@ def analyze_event(sku, api_key, my_team):
             'Fraud_Score': fraud_score,
             'Sleeper_Score': sleeper_score,
             'Sleeper_Reasons': sleeper_reasons,
-            'Is_Sleeper': sleeper_score >= 40,
-            'Is_High_Risk': is_fraud and sleeper_score >= 40,  # Both = High Risk / High Reward
+            'Is_Sleeper': sleeper_score >= 60,
+            'Is_High_Risk': is_fraud and sleeper_score >= 60,  # Both = High Risk / High Reward
             # Notes
             'Auto_Notes': notes,
             'Manual_Note': team_notes.get(name, ''),
