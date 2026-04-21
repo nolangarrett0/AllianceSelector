@@ -414,6 +414,7 @@
     <div class="header">
         <h1>Worlds Predictor</h1>
         <p>VEX Robotics Spirit Division &bull; Team 8568A</p>
+        <p id="lastPlayedInfo" style="font-size: 0.95rem; color: #a5b4cb; font-weight: 600; margin-top: 0.5rem; letter-spacing: 0.5px;">Data Current Through: <span style="color: #fff;">Loading...</span></p>
         <div class="controls">
             <button class="btn" id="refreshBtn" onclick="fetchPredictions()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -468,6 +469,11 @@
                 const response = await fetch(API_URL);
                 if (!response.ok) throw new Error('Network response was not ok');
                 const data = await response.json();
+                
+                const lastInfo = document.getElementById('lastPlayedInfo');
+                if (lastInfo) {
+                    lastInfo.innerHTML = `Data Current Through: <span style="color: #fff;">${data.last_played || 'None'}</span>`;
+                }
                 
                 renderMatches(data.predictions);
             } catch (error) {
