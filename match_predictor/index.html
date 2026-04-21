@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Predictor - 8568A</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --surface-color: #1a1f35;
+            --surface-hover: #232a45;
+            --text-main: #f0f4f8;
+            --text-muted: #8b9bb4;
+            --red-alliance: #ff4b4b;
+            --red-glow: rgba(255, 75, 75, 0.2);
+            --blue-alliance: #4b88ff;
+            --blue-glow: rgba(75, 136, 255, 0.2);
+            --accent-glow: #8e2de2;
+            --accent-glow-2: #4a00e0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            width: 100%;
+            padding: 2rem 0;
+            text-align: center;
+            background: linear-gradient(135deg, var(--bg-color), var(--surface-color));
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 50%);
+            transform: translateX(-50%);
+            opacity: 0.1;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: linear-gradient(to right, #fff, #a5b4cb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            margin: 0.5rem 0 0 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .controls {
+            margin-top: 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-2));
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(74, 0, 224, 0.4);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 0, 224, 0.6);
+        }
+
+        .btn:disabled {
+            background: #333;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+            color: #888;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 90%;
+            margin: 2rem auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .match-card {
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .match-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(0,0,0,0.5);
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        .match-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .match-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+
+        .match-name {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            width: 80px;
+        }
+
+        .match-time {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .match-teams {
+            display: flex;
+            flex: 2;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .team-pill {
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .team-pill.target-team {
+            border: 2px solid #fff;
+            background: rgba(255,255,255,0.15);
+        }
+
+        .alliance-red { color: var(--red-alliance); }
+        .alliance-blue { color: var(--blue-alliance); }
+
+        .match-prediction {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            flex: 1;
+        }
+
+        .winner-badge {
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .winner-red {
+            background-color: var(--red-glow);
+            color: var(--red-alliance);
+            border: 1px solid rgba(255, 75, 75, 0.3);
+        }
+
+        .winner-blue {
+            background-color: var(--blue-glow);
+            color: var(--blue-alliance);
+            border: 1px solid rgba(75, 136, 255, 0.3);
+        }
+
+        .confidence-bar-container {
+            width: 100%;
+            height: 6px;
+            background: #2a314a;
+            border-radius: 3px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .conf-red {
+            height: 100%;
+            background: var(--red-alliance);
+            transition: width 1s ease-in-out;
+        }
+
+        .conf-blue {
+            height: 100%;
+            background: var(--blue-alliance);
+            transition: width 1s ease-in-out;
+        }
+
+        .match-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid transparent;
+        }
+
+        .match-card.expanded .match-details {
+            max-height: 200px;
+            padding: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .detail-col {
+            background: rgba(255,255,255,0.02);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .explanation {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: #b0c4de;
+            line-height: 1.5;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(11, 15, 25, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid var(--accent-glow);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 1rem;
+            font-size: 1.2rem;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Worlds Predictor</h1>
+        <p>VEX Robotics Spirit Division &bull; Team 8568A</p>
+        <div class="controls">
+            <button class="btn" id="refreshBtn" onclick="fetchPredictions()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-12.28l5.67-5.67"/></svg>
+                Sync Live Data
+            </button>
+        </div>
+    </div>
+
+    <div class="container" id="matchContainer">
+        <!-- Matches will be populated here by JS -->
+    </div>
+
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Analyzing Neural Data...</div>
+        <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; text-align: center; max-width: 400px;">
+            First run caches full season history.<br>Subsequent runs sync only Worlds data.
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5001/api/predictions';
+
+        async function fetchPredictions() {
+            const container = document.getElementById('matchContainer');
+            const loader = document.getElementById('loading');
+            const btn = document.getElementById('refreshBtn');
+
+            loader.classList.add('active');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                
+                renderMatches(data.predictions);
+            } catch (error) {
+                console.error('Failed to fetch predictions:', error);
+                container.innerHTML = `<div style="text-align:center; color:#ff4b4b; padding:2rem;">
+                    <h3>Connection Error</h3>
+                    <p>Make sure the backend server is running on port 5001.</p>
+                </div>`;
+            } finally {
+                loader.classList.remove('active');
+                btn.disabled = false;
+            }
+        }
+
+        function renderMatches(predictions) {
+            const container = document.getElementById('matchContainer');
+            container.innerHTML = '';
+
+            predictions.forEach((m, index) => {
+                const r1 = m.red[0];
+                const r2 = m.red[1];
+                const b1 = m.blue[0];
+                const b2 = m.blue[1];
+
+                const isRedTarget = r1 === '8568A' || r2 === '8568A';
+                const isBlueTarget = b1 === '8568A' || b2 === '8568A';
+
+                const html = `
+                    <div class="match-card" onclick="this.classList.toggle('expanded')">
+                        <div class="match-header">
+                            <div class="match-info">
+                                <div>
+                                    <div class="match-name">${m.match}</div>
+                                    <div class="match-time">${m.time}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="match-teams">
+                                <span class="alliance-red">
+                                    <span class="team-pill ${r1 === '8568A' ? 'target-team' : ''}">${r1}</span> + 
+                                    <span class="team-pill ${r2 === '8568A' ? 'target-team' : ''}">${r2}</span>
+                                </span>
+                                <span style="color:var(--text-muted); font-size:0.9rem;">VS</span>
+                                <span class="alliance-blue">
+                                    <span class="team-pill ${b1 === '8568A' ? 'target-team' : ''}">${b1}</span> + 
+                                    <span class="team-pill ${b2 === '8568A' ? 'target-team' : ''}">${b2}</span>
+                                </span>
+                            </div>
+
+                            <div class="match-prediction">
+                                <div class="winner-badge ${m.winner === 'Red' ? 'winner-red' : 'winner-blue'}">
+                                    ${m.winner} • ${m.confidence}%
+                                </div>
+                                <div class="confidence-bar-container">
+                                    <div class="conf-red" style="width: ${m.red_conf}%"></div>
+                                    <div class="conf-blue" style="width: ${m.blue_conf}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="match-details">
+                            <div class="details-grid">
+                                <div class="detail-col">
+                                    <h4 style="color:var(--red-alliance); margin-top:0;">Red Power Ratings</h4>
+                                    <div class="detail-row"><span>${r1}</span><span>${m.details.red_ratings[r1]}</span></div>
+                                    <div class="detail-row"><span>${r2}</span><span>${m.details.red_ratings[r2]}</span></div>
+                                    <div class="detail-row" style="font-weight:bold;"><span>Combined</span><span>${(m.details.red_ratings[r1] + m.details.red_ratings[r2]).toFixed(1)}</span></div>
+                                </div>
+                                <div class="detail-col">
+                                    <h4 style="color:var(--blue-alliance); margin-top:0;">Blue Power Ratings</h4>
+                                    <div class="detail-row"><span>${b1}</span><span>${m.details.blue_ratings[b1]}</span></div>
+                                    <div class="detail-row"><span>${b2}</span><span>${m.details.blue_ratings[b2]}</span></div>
+                                    <div class="detail-row" style="font-weight:bold;"><span>Combined</span><span>${(m.details.blue_ratings[b1] + m.details.blue_ratings[b2]).toFixed(1)}</span></div>
+                                </div>
+                            </div>
+                            <div class="explanation">
+                                ${m.details.explanation}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        // Fetch on load
+        document.addEventListener('DOMContentLoaded', fetchPredictions);
+    </script>
+</body>
+</html>
