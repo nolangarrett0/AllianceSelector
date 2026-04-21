@@ -329,6 +329,20 @@
             color: #818cf8;
         }
         
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s;
+        }
+        
+        th.sortable:hover {
+            color: #a5b4fc;
+        }
+        
+        th.sort-active {
+            color: var(--orange);
+        }
+        
         td {
             padding: 5px 4px;
             border-bottom: 1px solid var(--border);
@@ -376,6 +390,11 @@
         .badge-purple { background: rgba(139,92,246,0.2); color: var(--purple); }
         .badge-cyan { background: rgba(6,182,212,0.2); color: var(--cyan); }
         .badge-orange { background: rgba(249,115,22,0.2); color: var(--orange); }
+        .badge-highrisk { background: linear-gradient(135deg, rgba(249,115,22,0.3), rgba(239,68,68,0.3)); color: #fbbf24; }
+        
+        .row-highrisk {
+            background: rgba(249,115,22,0.08) !important;
+        }
         
         /* Tier sections for pick recommendations */
         .tier {
@@ -673,6 +692,10 @@ const App = () => {
     const [h2hWinner, setH2hWinner] = useState('');    // H2H form: winner input
     const [h2hLoser, setH2hLoser] = useState('');      // H2H form: loser input
     const [h2hRound, setH2hRound] = useState('QF');    // H2H form: round select
+    
+    // Leaderboard sorting
+    const [sortCol, setSortCol] = useState(null);       // Column key to sort by
+    const [sortDir, setSortDir] = useState(null);       // 'desc', 'asc', or null (default)
 
     // =============================
     // EFFECTS (Side Effects)
@@ -864,6 +887,40 @@ const App = () => {
     // Filter out picked teams from a list
     const getAvailable = (teams) => teams?.filter(t => !picked.includes(t.Team)) || [];
 
+    // Sort handler: click once = descending, again = ascending, again = default
+    const handleSort = (col) => {
+        if (sortCol === col) {
+            if (sortDir === 'desc') setSortDir('asc');
+            else if (sortDir === 'asc') { setSortCol(null); setSortDir(null); }
+        } else {
+            setSortCol(col);
+            setSortDir('desc');
+        }
+    };
+
+    // Apply sort to leaderboard data
+    const getSortedLeaderboard = () => {
+        if (!data?.leaderboard) return [];
+        if (!sortCol || !sortDir) return data.leaderboard;
+        
+        const sorted = [...data.leaderboard].sort((a, b) => {
+            let va = a[sortCol] ?? 0;
+            let vb = b[sortCol] ?? 0;
+            if (typeof va === 'string') va = va.toLowerCase();
+            if (typeof vb === 'string') vb = vb.toLowerCase();
+            if (va < vb) return sortDir === 'asc' ? -1 : 1;
+            if (va > vb) return sortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return sorted;
+    };
+
+    // Sort indicator arrow
+    const sortArrow = (col) => {
+        if (sortCol !== col) return '';
+        return sortDir === 'desc' ? ' ▼' : ' ▲';
+    };
+
     // =============================
     // SUB-COMPONENTS
     // =============================
@@ -874,8 +931,8 @@ const App = () => {
     const TeamRow = ({ team, showPick, rank, showElim }) => (
         <tr 
             className={`clickable 
-                ${team.Is_Fraud ? 'row-fraud' : ''} 
-                ${team.Is_Sleeper ? 'row-sleeper' : ''} 
+                ${team.Is_High_Risk ? 'row-highrisk' : team.Is_Fraud ? 'row-fraud' : ''} 
+                ${!team.Is_High_Risk && team.Is_Sleeper ? 'row-sleeper' : ''} 
                 ${picked.includes(team.Team) ? 'row-picked' : ''} 
                 ${ratings[team.Team] ? 'row-rated' : ''}`}
             onClick={() => setModal(team)}
@@ -902,11 +959,13 @@ const App = () => {
             {/* Team name with badges */}
             <td>
                 <strong>{team.Team}</strong>
-                {team.Is_Sleeper && <span className="badge badge-green" style={{ marginLeft: '3px' }}>💎</span>}
+                {team.Is_High_Risk && <span className="badge badge-highrisk" style={{ marginLeft: '3px' }}>⚡</span>}
+                {!team.Is_High_Risk && team.Is_Sleeper && <span className="badge badge-green" style={{ marginLeft: '3px' }}>💎</span>}
+                {!team.Is_High_Risk && team.Is_Fraud && <span className="badge badge-red" style={{ marginLeft: '3px' }}>⚠️</span>}
                 {ratings[team.Team] && <span className="badge badge-orange" style={{ marginLeft: '3px' }}>⭐{ratings[team.Team]}</span>}
             </td>
             
-            {/* Event rank */}
+            {/* Event seed */}
             <td>#{team.Rank}</td>
             
             {/* Grade */}
@@ -958,7 +1017,7 @@ const App = () => {
                             <tr>
                                 {showPick && <th></th>}
                                 <th>Team</th>
-                                <th>Rk</th>
+                                <th>Seed</th>
                                 <th>Grd</th>
                                 <th>TS</th>
                                 <th>Skl</th>
@@ -1016,8 +1075,9 @@ const App = () => {
                         <div>
                             <div className="modal-title">
                                 {team.Team}
-                                {team.Is_Sleeper && <span className="badge badge-green" style={{ marginLeft: '6px' }}>💎 SLEEPER</span>}
-                                {team.Is_Fraud && <span className="badge badge-red" style={{ marginLeft: '6px' }}>⚠️ FRAUD</span>}
+                                {team.Is_High_Risk && <span className="badge badge-highrisk" style={{ marginLeft: '6px' }}>⚡ HIGH RISK / HIGH REWARD</span>}
+                                {!team.Is_High_Risk && team.Is_Sleeper && <span className="badge badge-green" style={{ marginLeft: '6px' }}>💎 SLEEPER</span>}
+                                {!team.Is_High_Risk && team.Is_Fraud && <span className="badge badge-red" style={{ marginLeft: '6px' }}>⚠️ FRAUD</span>}
                             </div>
                             <div style={{ color: 'var(--dim)', fontSize: '9px' }}>
                                 #{team.Rank} • {team.Record} • Elim: {team.Elim_Record}
@@ -1110,7 +1170,7 @@ const App = () => {
                         )}
                         
                         {/* Sleeper Reasons */}
-                        {team.Is_Sleeper && team.Sleeper_Reasons?.length > 0 && (
+                        {(team.Is_Sleeper || team.Is_High_Risk) && team.Sleeper_Reasons?.length > 0 && (
                             <div className="modal-section">
                                 <div className="modal-section-title" style={{ color: 'var(--green)' }}>💎 Why They're A Sleeper</div>
                                 {team.Sleeper_Reasons.map((r, i) => (
@@ -1120,7 +1180,7 @@ const App = () => {
                         )}
                         
                         {/* Fraud Flags */}
-                        {team.Is_Fraud && team.Fraud_Flags?.length > 0 && (
+                        {(team.Is_Fraud || team.Is_High_Risk) && team.Fraud_Flags?.length > 0 && (
                             <div className="modal-section" style={{ background: 'rgba(239,68,68,0.1)', padding: '8px', borderRadius: '6px' }}>
                                 <div className="modal-section-title" style={{ color: 'var(--red)' }}>⚠️ Red Flags</div>
                                 {team.Fraud_Flags.map((f, i) => (
@@ -1190,7 +1250,7 @@ const App = () => {
                     <button className={`tab ${tab === 'picks' ? 'active' : ''}`} onClick={() => setTab('picks')} disabled={!data}>🎯 Picks</button>
                     <button className={`tab ${tab === 'live' ? 'active' : ''}`} onClick={() => setTab('live')} disabled={!data}>🔴 Live</button>
                     <button className={`tab ${tab === 'h2h' ? 'active' : ''}`} onClick={() => setTab('h2h')} disabled={!data}>⚔️ H2H</button>
-                    <button className={`tab ${tab === 'frauds' ? 'active' : ''}`} onClick={() => setTab('frauds')} disabled={!data}>⚠️ Frauds</button>
+                    <button className={`tab ${tab === 'guide' ? 'active' : ''}`} onClick={() => setTab('guide')}>📖 Guide</button>
                 </div>
                 
                 {/* ==================== SETUP TAB ==================== */}
@@ -1257,30 +1317,37 @@ const App = () => {
                 {/* ==================== LEADERBOARD TAB ==================== */}
                 {tab === 'leaderboard' && data && (
                     <div>
-                        <h3 style={{ fontSize: '13px', marginBottom: '6px' }}>
-                            📊 AI Leaderboard 
-                            <span style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal', marginLeft: '8px' }}>
-                                ({data.leaderboard?.length} teams, frauds excluded)
-                            </span>
-                        </h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                            <h3 style={{ fontSize: '13px', margin: 0 }}>
+                                📊 AI Leaderboard 
+                                <span style={{ fontSize: '9px', color: 'var(--dim)', fontWeight: 'normal', marginLeft: '8px' }}>
+                                    ({data.leaderboard?.length} teams)
+                                </span>
+                            </h3>
+                            <div style={{ display: 'flex', gap: '8px', fontSize: '8px', color: 'var(--dim)' }}>
+                                <span><span className="badge badge-green" style={{ marginRight: '3px' }}>💎</span> Sleeper</span>
+                                <span><span className="badge badge-red" style={{ marginRight: '3px' }}>⚠️</span> Fraud</span>
+                                <span><span className="badge badge-highrisk" style={{ marginRight: '3px' }}>⚡</span> High Risk</span>
+                            </div>
+                        </div>
                         <div style={{ overflowX: 'auto' }}>
                             <table>
                                 <thead>
                                     <tr>
                                         <th>#</th>
                                         <th>Team</th>
-                                        <th>Rk</th>
-                                        <th>Grd</th>
-                                        <th>TS</th>
-                                        <th>Skl</th>
-                                        <th>Elim</th>
-                                        <th>OPR</th>
-                                        <th>Ceil</th>
-                                        <th>Score</th>
+                                        <th className={`sortable ${sortCol === 'Rank' ? 'sort-active' : ''}`} onClick={() => handleSort('Rank')}>Seed{sortArrow('Rank')}</th>
+                                        <th className={`sortable ${sortCol === 'Overall_Grade' ? 'sort-active' : ''}`} onClick={() => handleSort('Overall_Grade')}>Grd{sortArrow('Overall_Grade')}</th>
+                                        <th className={`sortable ${sortCol === 'TrueSkill_Mu' ? 'sort-active' : ''}`} onClick={() => handleSort('TrueSkill_Mu')}>TS{sortArrow('TrueSkill_Mu')}</th>
+                                        <th className={`sortable ${sortCol === 'Skills' ? 'sort-active' : ''}`} onClick={() => handleSort('Skills')}>Skl{sortArrow('Skills')}</th>
+                                        <th className={`sortable ${sortCol === 'Elim_Wins' ? 'sort-active' : ''}`} onClick={() => handleSort('Elim_Wins')}>Elim{sortArrow('Elim_Wins')}</th>
+                                        <th className={`sortable ${sortCol === 'OPR' ? 'sort-active' : ''}`} onClick={() => handleSort('OPR')}>OPR{sortArrow('OPR')}</th>
+                                        <th className={`sortable ${sortCol === 'Ceiling' ? 'sort-active' : ''}`} onClick={() => handleSort('Ceiling')}>Ceil{sortArrow('Ceiling')}</th>
+                                        <th className={`sortable ${sortCol === 'Overall_Score' ? 'sort-active' : ''}`} onClick={() => handleSort('Overall_Score')}>Score{sortArrow('Overall_Score')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {data.leaderboard?.slice(0, 50).map((t, i) => (
+                                    {getSortedLeaderboard().slice(0, 50).map((t, i) => (
                                         <TeamRow key={i} team={t} rank={i} showElim={true} />
                                     ))}
                                 </tbody>
@@ -1478,41 +1545,56 @@ const App = () => {
                     </div>
                 )}
                 
-                {/* ==================== FRAUDS TAB ==================== */}
-                {tab === 'frauds' && data && (
+                {/* ==================== GUIDE TAB ==================== */}
+                {tab === 'guide' && (
                     <div>
-                        <h3 style={{ fontSize: '13px', color: 'var(--red)', marginBottom: '6px' }}>
-                            ⚠️ Fraud Alert ({data.frauds?.length || 0})
-                        </h3>
-                        <p style={{ fontSize: '9px', color: 'var(--dim)', marginBottom: '8px' }}>
-                            High-ranked teams that will probably choke in elims. Avoid picking these!
-                        </p>
-                        {data.frauds?.length > 0 ? (
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Team</th>
-                                        <th>Rank</th>
-                                        <th>Elim</th>
-                                        <th>Red Flags</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.frauds.map((t, i) => (
-                                        <tr key={i} className="clickable row-fraud" onClick={() => setModal(t)}>
-                                            <td><strong>{t.Team}</strong></td>
-                                            <td>#{t.Rank}</td>
-                                            <td>{t.Elim_Record}</td>
-                                            <td style={{ fontSize: '8px' }}>{t.Fraud_Flags?.join(' • ')}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--green)' }}>
-                                ✅ No frauds detected!
+                        <h3 style={{ fontSize: '13px', marginBottom: '10px' }}>📖 How to Read VEX Scout</h3>
+                        
+                        {/* Column Stats */}
+                        <div className="modal-section">
+                            <div className="modal-section-title">📊 Stat Columns</div>
+                            <div style={{ fontSize: '10px', lineHeight: '1.8' }}>
+                                <div><strong style={{ color: 'var(--purple)' }}>TS (TrueSkill)</strong> — AI-estimated skill level. Starts at 25, goes up with wins and down with losses. Higher = better. Accounts for partner/opponent strength.</div>
+                                <div><strong style={{ color: 'var(--cyan)' }}>SKL (Skills)</strong> — Solo robot score (no partner). Proves the robot works on its own. Higher = more mechanically capable.</div>
+                                <div><strong style={{ color: 'var(--green)' }}>ELIM</strong> — Win-Loss record in elimination matches only. More important than qual record because it shows performance under pressure.</div>
+                                <div><strong style={{ color: 'var(--blue)' }}>OPR</strong> — Offensive Power Rating. Uses math to isolate each team's individual point contribution from alliance scores. Higher = contributes more.</div>
+                                <div><strong style={{ color: 'var(--orange)' }}>CEIL (Ceiling)</strong> — Estimated best-case individual contribution (OPR × 1.3). Shows how good they can be on a great day.</div>
+                                <div><strong style={{ color: 'var(--accent)' }}>SCORE</strong> — Overall AI score (0-100) combining TrueSkill (20%), Skills (20%), Elim Record (15%), Clutch Rate (10%), OPR (10%), ML Model (10%), Ceiling (10%), and Consistency (5%).</div>
                             </div>
-                        )}
+                        </div>
+                        
+                        {/* Labels */}
+                        <div className="modal-section">
+                            <div className="modal-section-title">🏷️ Team Labels</div>
+                            <div style={{ fontSize: '10px', lineHeight: '2' }}>
+                                <div><span className="badge badge-green" style={{ marginRight: '6px' }}>💎 SLEEPER</span> Underrated team. Ranked low but has strong underlying stats (high skills, improving trend, upset wins). Could be a steal in alliance selection.</div>
+                                <div><span className="badge badge-red" style={{ marginRight: '6px' }}>⚠️ FRAUD</span> Overrated team. Ranked high but has red flags (chokes close games, early elim exits, weak schedule). Risky alliance pick.</div>
+                                <div><span className="badge badge-highrisk" style={{ marginRight: '6px' }}>⚡ HIGH RISK</span> Elite robot, but cracks under pressure. Both sleeper AND fraud signals present. Pick them if you can carry under pressure, skip if you need reliability.</div>
+                            </div>
+                        </div>
+                        
+                        {/* Row Colors */}
+                        <div className="modal-section">
+                            <div className="modal-section-title">🎨 Row Colors</div>
+                            <div style={{ fontSize: '10px', lineHeight: '2' }}>
+                                <div><span style={{ display: 'inline-block', width: '12px', height: '12px', background: 'rgba(16,185,129,0.15)', borderRadius: '2px', marginRight: '6px', verticalAlign: 'middle' }}></span> Green = Sleeper (underrated gem)</div>
+                                <div><span style={{ display: 'inline-block', width: '12px', height: '12px', background: 'rgba(239,68,68,0.15)', borderRadius: '2px', marginRight: '6px', verticalAlign: 'middle' }}></span> Red = Fraud (overrated, avoid)</div>
+                                <div><span style={{ display: 'inline-block', width: '12px', height: '12px', background: 'rgba(249,115,22,0.15)', borderRadius: '2px', marginRight: '6px', verticalAlign: 'middle' }}></span> Orange = High Risk / High Reward</div>
+                                <div><span style={{ display: 'inline-block', width: '12px', height: '12px', background: 'rgba(249,115,22,0.3)', border: '2px solid var(--orange)', borderRadius: '2px', marginRight: '6px', verticalAlign: 'middle' }}></span> Orange left border = You rated this team</div>
+                            </div>
+                        </div>
+                        
+                        {/* Tips */}
+                        <div className="modal-section">
+                            <div className="modal-section-title">💡 Quick Tips</div>
+                            <div style={{ fontSize: '10px', lineHeight: '1.8' }}>
+                                <div>• <strong>Click any team</strong> to see their full breakdown, rate them, and view match history</div>
+                                <div>• <strong>Your Rating</strong> overrides the AI (60% you, 40% AI). Use it when you see something data can't capture</div>
+                                <div>• <strong>H2H tab</strong> — record elim results to update fraud detection in real time</div>
+                                <div>• <strong>Live tab</strong> — mark teams as picked during alliance selection to track who's still available</div>
+                                <div>• <strong>Refresh</strong> button re-runs the full analysis with latest data + your ratings</div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

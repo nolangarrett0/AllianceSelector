@@ -1,5 +1,5 @@
-('C:\\Users\\IJiae\\Downloads\\AllianceSelector\\build\\VEX Scout\\VEX '
- 'Scout.pkg',
+('C:\\Users\\JimArnold\\Documents\\GitHub\\AllianceSelector\\build\\VEX '
+ 'Scout\\VEX Scout.pkg',
  {'BINARY': True,
   'DATA': True,
   'EXECUTABLE': True,
@@ -11,46 +11,46 @@
   'SYMLINK': False},
  [('pyi-contents-directory _internal', '', 'OPTION'),
   ('PYZ-00.pyz',
-   'C:\\Users\\IJiae\\Downloads\\AllianceSelector\\build\\VEX '
+   'C:\\Users\\JimArnold\\Documents\\GitHub\\AllianceSelector\\build\\VEX '
    'Scout\\PYZ-00.pyz',
    'PYZ'),
   ('struct',
-   'C:\\Users\\IJiae\\Downloads\\AllianceSelector\\build\\VEX '
+   'C:\\Users\\JimArnold\\Documents\\GitHub\\AllianceSelector\\build\\VEX '
    'Scout\\localpycs\\struct.pyc',
    'PYMODULE'),
   ('pyimod01_archive',
-   'C:\\Users\\IJiae\\Downloads\\AllianceSelector\\build\\VEX '
+   'C:\\Users\\JimArnold\\Documents\\GitHub\\AllianceSelector\\build\\VEX '
    'Scout\\localpycs\\pyimod01_archive.pyc',
    'PYMODULE'),
   ('pyimod02_importers',
-   'C:\\Users\\IJiae\\Downloads\\AllianceSelector\\build\\VEX '
+   'C:\\Users\\JimArnold\\Documents\\GitHub\\AllianceSelector\\build\\VEX '
    'Scout\\localpycs\\pyimod02_importers.pyc',
    'PYMODULE'),
   ('pyimod03_ctypes',
-   'C:\\Users\\IJiae\\Downloads\\AllianceSelector\\build\\VEX '
+   'C:\\Users\\JimArnold\\Documents\\GitHub\\AllianceSelector\\build\\VEX '
    'Scout\\localpycs\\pyimod03_ctypes.pyc',
    'PYMODULE'),
   ('pyimod04_pywin32',
-   'C:\\Users\\IJiae\\Downloads\\AllianceSelector\\build\\VEX '
+   'C:\\Users\\JimArnold\\Documents\\GitHub\\AllianceSelector\\build\\VEX '
    'Scout\\localpycs\\pyimod04_pywin32.pyc',
    'PYMODULE'),
   ('pyiboot01_bootstrap',
-   'C:\\Users\\IJiae\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
+   'C:\\Users\\JimArnold\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
    'PYSOURCE'),
   ('pyi_rth_pkgutil',
-   'C:\\Users\\IJiae\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pkgutil.py',
+   'C:\\Users\\JimArnold\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pkgutil.py',
    'PYSOURCE'),
   ('pyi_rth_multiprocessing',
-   'C:\\Users\\IJiae\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_multiprocessing.py',
+   'C:\\Users\\JimArnold\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_multiprocessing.py',
    'PYSOURCE'),
   ('pyi_rth_inspect',
-   'C:\\Users\\IJiae\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py',
+   'C:\\Users\\JimArnold\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py',
    'PYSOURCE'),
   ('pyi_rth_setuptools',
-   'C:\\Users\\IJiae\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_setuptools.py',
+   'C:\\Users\\JimArnold\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_setuptools.py',
    'PYSOURCE'),
   ('launcher',
-   'C:\\Users\\IJiae\\Downloads\\AllianceSelector\\launcher.py',
+   'C:\\Users\\JimArnold\\Documents\\GitHub\\AllianceSelector\\launcher.py',
    'PYSOURCE')],
  'python314.dll',
  True,

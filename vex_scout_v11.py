@@ -1601,6 +1601,37 @@ def analyze_event(sku, api_key, my_team):
     all_scores = [p['Overall_Score'] for p in processed]
     for p in processed:
         p['Overall_Grade'] = get_grade(p['Overall_Score'], all_scores)
+        
+    # =========================================================================
+    # STEP 6.5: RE-EVALUATE SLEEPERS AND FRAUDS WITH SCOUT RANK
+    # Now that we have Overall Scores, we determine Scout Rank to ensure
+    # teams labeled "Sleeper" are ACTUALLY underrated by the event.
+    # =========================================================================
+    
+    # Sort temporarily by Overall Score to determine our Scout Ranks
+    processed_sorted = sorted(processed, key=lambda x: x['Overall_Score'], reverse=True)
+    scout_ranks = {p['Team']: idx + 1 for idx, p in enumerate(processed_sorted)}
+    
+    for p in processed:
+        scout_rank = scout_ranks[p['Team']]
+        event_rank = p['Rank']
+        
+        # SLEEPER: Must be underrated by the event by at least 3 spots
+        # (Our Scout Rank must be < Event Rank - 3)
+        if scout_rank > event_rank - 3:
+            p['Sleeper_Score'] = 0
+            p['Sleeper_Reasons'] = []
+            p['Is_Sleeper'] = False
+            
+        # FRAUD: Must be overrated by the event by at least 3 spots
+        # (Our Scout Rank must be > Event Rank + 3)
+        if scout_rank < event_rank + 3:
+            p['Is_Fraud'] = False
+            p['Fraud_Flags'] = []
+            p['Fraud_Score'] = 0
+            
+        # Re-evaluate High Risk (Both Sleeper and Fraud)
+        p['Is_High_Risk'] = p['Is_Fraud'] and p['Is_Sleeper']
     
     # =========================================================================
     # STEP 7: Calculate synergy and pick recommendations

@@ -51,7 +51,6 @@
     performance, consistency (standard deviation), clutch performance in close
     games, and trend analysis (improving vs declining).
 
- AUTHOR: Built with Claude AI assistance
  PURPOSE: VEX V5 Robotics Competition alliance selection
  SEASON: 2025-2026 Push Back
 ================================================================================
@@ -467,11 +466,12 @@ def calculate_sleeper_score(team_data):
     
     # STRONG SKILLS: Skills matches are SOLO - no random partner
     # High skills proves the ROBOT is good, not just lucky partners
+    # Skills = best driver run + best programming run (combined)
     skills = team_data.get('Skills', 0)
-    if skills >= 80:
+    if skills >= 160:
         score += 25
         reasons.append(f"🎮 Strong skills ({skills})")
-    elif skills >= 50:
+    elif skills >= 120:
         score += 12
         reasons.append(f"🎮 Decent skills ({skills})")
     
@@ -645,11 +645,9 @@ def detect_fraud(team_data, global_avg_sp, h2h_losses):
         score += 12
         flags.append("No dominant wins")
     
-    # LOW SKILLS: High rank but robot doesn't perform in solo matches
-    skills = team_data.get('Skills', 0)
-    if rank <= 8 and skills < 30:
-        score += 15
-        flags.append(f"Low skills ({skills})")
+    # NOTE: Skills is intentionally NOT used as a fraud indicator.
+    # Many top teams are pure match bots and don't prioritize skills runs.
+    # Skills is used as a POSITIVE signal elsewhere (sleeper/synergy), never a penalty.
     
     # DECLINING: Getting worse as event progresses
     if team_data.get('Trend', 0) <= -8:
@@ -844,6 +842,9 @@ def train_model():
                 ceiling = np.percentile(s['Scores'], 90)
                 
                 # Calculate trend (improvement over event)
+                # NOTE: Training data still uses raw scores for trend since
+                # we don't have per-match margin data from the API for past events.
+                # The live analysis (below) uses margin-based trend.
                 trend = 0
                 if len(s['Scores']) >= 4:
                     mid = len(s['Scores']) // 2
@@ -993,7 +994,7 @@ def calculate_synergy(my_stats, partner):
         reasons.append("🏆 TrueSkill elite")
     
     # SKILLS: Proves robot works in solo situations
-    if partner.get('Skills', 0) >= 70:
+    if partner.get('Skills', 0) >= 140:
         score += 10
         reasons.append(f"🎮 Skills: {partner.get('Skills', 0)}")
     
@@ -1237,14 +1238,20 @@ def analyze_event(sku, api_key, my_team):
                             s['Blowout_Wins'] += 1
                         
                         # Track wins vs higher ranked / losses to lower ranked
-                        my_rank = s['Rank']
-                        for opp in opp_teams:
-                            if opp in stats:
-                                opp_rank = stats[opp]['Rank']
-                                if opp_rank < my_rank and won:
-                                    s['Wins_vs_Higher'] += 1
-                                elif opp_rank > my_rank + 3 and not won:
-                                    s['Losses_to_Lower_This_Event'] += 1
+                        # Uses AVERAGE ALLIANCE RANK to account for partner strength
+                        # A "giant kill" only counts if your whole alliance was
+                        # outranked, not just because you had a strong partner
+                        my_alliance_ranks = [stats[t]['Rank'] for t in my_teams if t in stats]
+                        opp_alliance_ranks = [stats[t]['Rank'] for t in opp_teams if t in stats]
+                        if my_alliance_ranks and opp_alliance_ranks:
+                            my_avg_rank = np.mean(my_alliance_ranks)
+                            opp_avg_rank = np.mean(opp_alliance_ranks)
+                            # Giant kill: opponent alliance was meaningfully higher-ranked
+                            if opp_avg_rank < my_avg_rank - 3 and won:
+                                s['Wins_vs_Higher'] += 1
+                            # Loss to lower: opponent alliance was meaningfully lower-ranked
+                            elif opp_avg_rank > my_avg_rank + 3 and not won:
+                                s['Losses_to_Lower_This_Event'] += 1
             
             page += 1
     
@@ -1307,14 +1314,26 @@ def analyze_event(sku, api_key, my_team):
     )
     
     if skills_data:
+        # Track best driver and best programming runs separately per team
+        best_driver = {}   # {team_name: best_driver_score}
+        best_prog = {}     # {team_name: best_programming_score}
+        
         for sk in skills_data.get('data', []):
             team_name = sk.get('team', {}).get('name')
             if team_name in stats:
-                # Keep the highest skills score (driver + programming combined)
-                stats[team_name]['Skills'] = max(
-                    stats[team_name]['Skills'], 
-                    sk.get('score', 0)
-                )
+                score = sk.get('score', 0)
+                sk_type = sk.get('type', '').lower()
+                
+                if sk_type == 'driver':
+                    best_driver[team_name] = max(best_driver.get(team_name, 0), score)
+                elif sk_type == 'programming':
+                    best_prog[team_name] = max(best_prog.get(team_name, 0), score)
+        
+        # Combined skills = best driver + best programming
+        for team_name in stats:
+            driver = best_driver.get(team_name, 0)
+            prog = best_prog.get(team_name, 0)
+            stats[team_name]['Skills'] = driver + prog
     
     # =========================================================================
     # STEP 6: Process all teams
@@ -1339,15 +1358,29 @@ def analyze_event(sku, api_key, my_team):
         # Calculate scoring statistics
         if has_matches:
             avg_pts = np.mean(s['Scores'])
-            std_dev = np.std(s['Scores']) if len(s['Scores']) > 2 else 0
-            ceiling = np.percentile(s['Scores'], 90) if len(s['Scores']) >= 3 else max(s['Scores'])
-            floor = np.percentile(s['Scores'], 10) if len(s['Scores']) >= 3 else min(s['Scores'])
+            
+            # Use MATCH MARGINS (score - opp_score) for std_dev and trend
+            # Raw alliance scores are noisy in Push Back because:
+            # - Your partner affects your alliance score
+            # - Strong vs strong matchups produce LOW scores (descoring)
+            # Margins isolate the outcome better
+            margins = [m['score'] - m['opp_score'] for m in match_history.get(name, [])]
+            std_dev = np.std(margins) if len(margins) > 2 else 0
+            
+            # Use OPR for ceiling/floor since it isolates INDIVIDUAL contribution
+            # This prevents a bad team carried by a strong partner from getting
+            # an inflated ceiling
+            team_opr_val = opr.get(name, avg_pts * 0.5)
+            ceiling = team_opr_val * 1.3  # Optimistic individual contribution
+            floor = team_opr_val * 0.7    # Pessimistic individual contribution
             
             # Trend: Are they improving or declining?
+            # Uses match margins instead of raw scores to account for
+            # opponent strength (top vs top = low scores ≠ declining)
             trend = 0
-            if len(s['Scores']) >= 4:
-                mid = len(s['Scores']) // 2
-                trend = np.mean(s['Scores'][mid:]) - np.mean(s['Scores'][:mid])
+            if len(margins) >= 4:
+                mid = len(margins) // 2
+                trend = np.mean(margins[mid:]) - np.mean(margins[:mid])
         else:
             # Pre-event estimates based on skills
             avg_pts = s['Skills'] * 0.5 if s['Skills'] > 0 else 30
@@ -1391,7 +1424,7 @@ def analyze_event(sku, api_key, my_team):
         # Normalize each component to 0-1 range
         ts_norm = min(1, max(0, (ts.mu - 15) / 25))
         opr_norm = min(1, team_opr / 50)
-        skills_norm = min(1, s['Skills'] / 120) if s['Skills'] > 0 else 0.3
+        skills_norm = min(1, s['Skills'] / 240) if s['Skills'] > 0 else 0.3
         ceiling_norm = min(1, ceiling / 80)
         elim_norm = elim_win_rate if elim_total > 0 else 0.5
         
@@ -1501,7 +1534,7 @@ def analyze_event(sku, api_key, my_team):
         notes = []
         if s['Auto'] >= 7:
             notes.append("🔥 Elite auto")
-        if s['Skills'] >= 80:
+        if s['Skills'] >= 160:
             notes.append(f"🎮 Strong skills ({s['Skills']})")
         if ts.mu >= 30:
             notes.append("🏆 High TrueSkill")
@@ -1557,6 +1590,7 @@ def analyze_event(sku, api_key, my_team):
             'Sleeper_Score': sleeper_score,
             'Sleeper_Reasons': sleeper_reasons,
             'Is_Sleeper': sleeper_score >= 40,
+            'Is_High_Risk': is_fraud and sleeper_score >= 40,  # Both = High Risk / High Reward
             # Notes
             'Auto_Notes': notes,
             'Manual_Note': team_notes.get(name, ''),
@@ -1567,6 +1601,37 @@ def analyze_event(sku, api_key, my_team):
     all_scores = [p['Overall_Score'] for p in processed]
     for p in processed:
         p['Overall_Grade'] = get_grade(p['Overall_Score'], all_scores)
+        
+    # =========================================================================
+    # STEP 6.5: RE-EVALUATE SLEEPERS AND FRAUDS WITH SCOUT RANK
+    # Now that we have Overall Scores, we determine Scout Rank to ensure
+    # teams labeled "Sleeper" are ACTUALLY underrated by the event.
+    # =========================================================================
+    
+    # Sort temporarily by Overall Score to determine our Scout Ranks
+    processed_sorted = sorted(processed, key=lambda x: x['Overall_Score'], reverse=True)
+    scout_ranks = {p['Team']: idx + 1 for idx, p in enumerate(processed_sorted)}
+    
+    for p in processed:
+        scout_rank = scout_ranks[p['Team']]
+        event_rank = p['Rank']
+        
+        # SLEEPER: Must be underrated by the event by at least 3 spots
+        # (Our Scout Rank must be < Event Rank - 3)
+        if scout_rank > event_rank - 3:
+            p['Sleeper_Score'] = 0
+            p['Sleeper_Reasons'] = []
+            p['Is_Sleeper'] = False
+            
+        # FRAUD: Must be overrated by the event by at least 3 spots
+        # (Our Scout Rank must be > Event Rank + 3)
+        if scout_rank < event_rank + 3:
+            p['Is_Fraud'] = False
+            p['Fraud_Flags'] = []
+            p['Fraud_Score'] = 0
+            
+        # Re-evaluate High Risk (Both Sleeper and Fraud)
+        p['Is_High_Risk'] = p['Is_Fraud'] and p['Is_Sleeper']
     
     # =========================================================================
     # STEP 7: Calculate synergy and pick recommendations
@@ -1652,9 +1717,9 @@ def analyze_event(sku, api_key, my_team):
     # STEP 8: Build final outputs
     # =========================================================================
     
-    # Leaderboard (frauds excluded)
+    # Leaderboard (ALL teams, color-coded by label in frontend)
     leaderboard = sorted(
-        [p for p in processed if not p['Is_Fraud']],
+        processed,
         key=lambda x: x['Overall_Score'],
         reverse=True
     )
