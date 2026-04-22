@@ -213,8 +213,10 @@ def _parse_match(match):
     red_teams = [t['team']['name'] for t in red_alliance.get('teams', [])]
     blue_teams = [t['team']['name'] for t in blue_alliance.get('teams', [])]
     
-    red_score = red_alliance.get('score', 0)
-    blue_score = blue_alliance.get('score', 0)
+    red_score = red_alliance.get('score')
+    red_score = int(red_score) if red_score is not None else 0
+    blue_score = blue_alliance.get('score')
+    blue_score = int(blue_score) if blue_score is not None else 0
     
     return red_teams, blue_teams, red_score, blue_score
 
@@ -397,15 +399,9 @@ def get_predictions():
     last_played = "None"
     played_matches = []
     for m in live_matches:
-        if m.get('started'):
+        red_teams, blue_teams, red_score, blue_score = _parse_match(m)
+        if red_score != 0 or blue_score != 0:
             played_matches.append(m['name'])
-        else:
-            alliances = m.get('alliances', [])
-            alliance_dict = {a.get('color'): a for a in alliances} if isinstance(alliances, list) else alliances
-            r_score = alliance_dict.get('red', {}).get('score', 0)
-            b_score = alliance_dict.get('blue', {}).get('score', 0)
-            if r_score != 0 or b_score != 0:
-                played_matches.append(m['name'])
             
     if played_matches:
         last_played = played_matches[-1]
@@ -422,7 +418,7 @@ def get_predictions():
     live_results = {}
     for m in live_matches:
         red_teams, blue_teams, red_score, blue_score = _parse_match(m)
-        is_played = m.get('started') is not None or red_score != 0 or blue_score != 0
+        is_played = (red_score != 0 or blue_score != 0)
         if is_played:
             if red_score > blue_score:
                 actual_winner = "Red"
@@ -492,8 +488,8 @@ def get_predictions():
         winner = "Red" if red_conf > 50 else "Blue" if blue_conf > 50 else "Toss-Up"
         conf = max(red_conf, blue_conf)
         
-        red_power_sum = r1_r.mu + r2_r.mu
-        blue_power_sum = b1_r.mu + b2_r.mu
+        red_power_sum = to_power_rating(r1_r.mu) + to_power_rating(r2_r.mu)
+        blue_power_sum = to_power_rating(b1_r.mu) + to_power_rating(b2_r.mu)
         
         prediction_data = {
             "match": match['name'],
@@ -513,8 +509,8 @@ def get_predictions():
                     b1: to_power_rating(b1_r.mu),
                     b2: to_power_rating(b2_r.mu)
                 },
-                "explanation": f"Red Alliance combined TrueSkill: {red_power_sum:.1f} (win prob {red_conf}%). Blue Alliance combined TrueSkill: {blue_power_sum:.1f} (win prob {blue_conf}%). " + 
-                               (f"Red is favored by {red_power_sum - blue_power_sum:.1f} skill points." if winner == "Red" else f"Blue is favored by {blue_power_sum - red_power_sum:.1f} skill points." if winner == "Blue" else "This match is essentially a coin flip.")
+                "explanation": f"Red Alliance combined Power Rating: {red_power_sum:.1f} (win prob {red_conf}%). Blue Alliance combined Power Rating: {blue_power_sum:.1f} (win prob {blue_conf}%). " + 
+                               (f"Red is favored by {red_power_sum - blue_power_sum:.1f} rating points." if winner == "Red" else f"Blue is favored by {blue_power_sum - red_power_sum:.1f} rating points." if winner == "Blue" else "This match is essentially a coin flip.")
             }
         }
         
