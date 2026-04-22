@@ -130,61 +130,160 @@ def fetch_live_event_data(event_id, division_id):
         page += 1
     return matches
 
+def weighted_update_trueskill(winner_ratings, loser_ratings, margin=0, weight=1.0,
+                               teammate_protect=False):
+    """
+    Enhanced TrueSkill update with event-importance weighting and teammate protection.
+    
+    Based on the core TrueSkill math from vex_scout_v11.update_trueskill, but extended
+    with two key features for Worlds-level prediction:
+    
+    Parameters:
+        winner_ratings (list): TrueSkillRating objects for winning alliance
+        loser_ratings (list): TrueSkillRating objects for losing alliance
+        margin (int): Point differential (bigger wins = bigger rating changes)
+        weight (float): Multiplier for update magnitude.
+                        >1.0 = stronger update (Worlds matches)
+                        <1.0 = weaker update (old season matches)
+        teammate_protect (bool): If True, reduce loss penalty for teams whose
+                                  partner was significantly weaker. Prevents a
+                                  good team from getting tanked by a bad random partner.
+    """
+    beta = 4.1667
+    
+    winner_mu = sum(r.mu for r in winner_ratings) / len(winner_ratings)
+    winner_sigma = sum(r.sigma**2 for r in winner_ratings)**0.5 / len(winner_ratings)
+    loser_mu = sum(r.mu for r in loser_ratings) / len(loser_ratings)
+    loser_sigma = sum(r.sigma**2 for r in loser_ratings)**0.5 / len(loser_ratings)
+    
+    c = (2 * beta**2 + winner_sigma**2 + loser_sigma**2)**0.5
+    t = (winner_mu - loser_mu) / c
+    
+    v = math.exp(-t**2 / 2) / (0.5 * (1 + math.erf(t / 2**0.5)) * (2 * math.pi)**0.5 + 0.001)
+    w = v * (v + t)
+    
+    margin_factor = 1 + min(margin / 50, 0.5)
+    
+    # Update winners — full weighted reward
+    for r in winner_ratings:
+        r.mu += (r.sigma**2 / c) * v * margin_factor * weight
+        r.sigma = max(1.0, r.sigma * (1 - (r.sigma**2 / c**2) * w * 0.5)**0.5)
+    
+    # Update losers — with optional per-team teammate protection
+    if teammate_protect and len(loser_ratings) == 2:
+        # In VEX 2v2: if your partner is much weaker, you're less responsible for the loss.
+        # We compute a per-team loss factor based on how strong their partner was relative to them.
+        #   partner_ratio = partner_mu / team_mu  (capped at 1.0)
+        #   loss_factor = 0.4 + 0.6 * partner_ratio
+        # 
+        # Examples:
+        #   Equal partners (mu 30 + mu 30): ratio=1.0, loss_factor=1.0 → full penalty
+        #   Weak partner  (mu 40 + mu 15): ratio=0.375, loss_factor=0.625 → ~63% penalty for the strong team
+        #   Slightly weak (mu 30 + mu 25): ratio=0.833, loss_factor=0.9 → ~90% penalty
+        for i, r in enumerate(loser_ratings):
+            partner = loser_ratings[1 - i]
+            if r.mu > 1:
+                partner_ratio = min(partner.mu / r.mu, 1.0)
+            else:
+                partner_ratio = 1.0
+            loss_factor = 0.4 + 0.6 * partner_ratio
+            r.mu -= (r.sigma**2 / c) * v * margin_factor * weight * loss_factor
+            r.sigma = max(1.0, r.sigma * (1 - (r.sigma**2 / c**2) * w * 0.5)**0.5)
+    else:
+        # Standard update (no protection) — used for season history
+        for r in loser_ratings:
+            r.mu -= (r.sigma**2 / c) * v * margin_factor * weight
+            r.sigma = max(1.0, r.sigma * (1 - (r.sigma**2 / c**2) * w * 0.5)**0.5)
+
+
+def _parse_match(match):
+    """Extract teams and scores from a match's alliance data."""
+    alliances = match.get('alliances', [])
+    alliance_dict = {a.get('color'): a for a in alliances} if isinstance(alliances, list) else alliances
+    
+    red_alliance = alliance_dict.get('red', {})
+    blue_alliance = alliance_dict.get('blue', {})
+    
+    red_teams = [t['team']['name'] for t in red_alliance.get('teams', [])]
+    blue_teams = [t['team']['name'] for t in blue_alliance.get('teams', [])]
+    
+    red_score = red_alliance.get('score', 0)
+    blue_score = blue_alliance.get('score', 0)
+    
+    return red_teams, blue_teams, red_score, blue_score
+
+
 def calculate_ratings(season_history, live_matches):
+    """
+    Calculate TrueSkill ratings in 3 phases to properly weight Worlds performance.
+    
+    The problem: A team dominating a weak regional event (e.g., Romania) builds a
+    TrueSkill of 80, but at Worlds they'd be average. If we treat all matches equally,
+    the season history drowns out Worlds performance and predictions never update.
+    
+    The solution — 3-phase processing:
+    
+    PHASE 1 (Baseline): Process season history to establish initial ratings.
+            These matter, but represent a different competitive context.
+    
+    PHASE 2 (Regression): Before Worlds, regress all ratings toward the global mean.
+            This prevents regional inflation from distorting Worlds predictions.
+            A team rated 80 from dominating a weak field gets pulled down to ~55-60.
+    
+    PHASE 3 (Worlds): Process Worlds matches with HEAVY weighting (1.8x) and
+            teammate-aware loss dampening. Worlds matches reflect current form at
+            the highest level, so they should quickly override season baselines.
+            Teammate protection ensures a good team with a bad random partner
+            doesn't get unfairly punished.
+    """
+    config = load_config()
+    worlds_event_id = config.get('worlds_event_id')
+    
     ratings = {}
-    # Combine season history and live matches
-    # We want to process them chronologically
-    all_matches = []
     
-    # We need to deduplicate matches because a live match might also be in the season history if it was recently cached
-    seen_matches = set()
+    # ── Deduplicate matches (live data overwrites stale cache) ──
+    match_dict = {}
     
-    # First, gather all matches
     for team, t_matches in season_history.items():
         for m in t_matches:
-            # Create a unique key for the match
             match_key = f"{m['event_id']}_{m['name']}"
-            if match_key not in seen_matches:
-                seen_matches.add(match_key)
-                # Assign a pseudo-date if started is missing, though we prefer started
-                started = m.get('started')
-                if not started:
-                    started = "2000-01-01T00:00:00Z"
-                all_matches.append((started, m))
+            if match_key not in match_dict:
+                match_dict[match_key] = m
                 
+    # Live matches ALWAYS overwrite cached versions (fixes the stale-score bug)
     for m in live_matches:
         match_key = f"{m['event_id']}_{m['name']}"
-        if match_key not in seen_matches:
-            seen_matches.add(match_key)
-            started = m.get('started')
-            if not started:
-                started = "2000-01-01T00:00:00Z"
-            all_matches.append((started, m))
-            
-    # Sort chronologically
-    all_matches.sort(key=lambda x: x[0])
+        match_dict[match_key] = m
     
-    # Run TrueSkill
-    # Identify unique teams to init ratings
-    for started, match in all_matches:
-        alliances = match.get('alliances', [])
-        alliance_dict = {a.get('color'): a for a in alliances} if isinstance(alliances, list) else alliances
+    # Build chronological list and split into pre-Worlds vs Worlds
+    pre_worlds_matches = []
+    worlds_matches = []
+    
+    for match_key, m in match_dict.items():
+        started = m.get('started')
+        if not started:
+            started = "2000-01-01T00:00:00Z"
         
-        red_alliance = alliance_dict.get('red', {})
-        blue_alliance = alliance_dict.get('blue', {})
+        if m.get('event_id') == worlds_event_id:
+            worlds_matches.append((started, m))
+        else:
+            pre_worlds_matches.append((started, m))
+    
+    pre_worlds_matches.sort(key=lambda x: x[0])
+    worlds_matches.sort(key=lambda x: x[0])
+    
+    # ══════════════════════════════════════════════════════════════
+    # PHASE 1: Season history baseline
+    # Process all pre-Worlds matches to build initial ratings.
+    # These establish the "prior" for each team — their historical form.
+    # ══════════════════════════════════════════════════════════════
+    for started, match in pre_worlds_matches:
+        red_teams, blue_teams, red_score, blue_score = _parse_match(match)
         
-        red_teams = [t['team']['name'] for t in red_alliance.get('teams', [])]
-        blue_teams = [t['team']['name'] for t in blue_alliance.get('teams', [])]
-        
-        red_score = red_alliance.get('score', 0)
-        blue_score = blue_alliance.get('score', 0)
-        
-        # Initialize missing teams
         for t in red_teams + blue_teams:
             if t not in ratings:
                 ratings[t] = TrueSkillRating()
-                
-        # If match hasn't been played, skip
+        
         if red_score == 0 and blue_score == 0:
             continue
             
@@ -193,13 +292,68 @@ def calculate_ratings(season_history, live_matches):
         
         if not r_ratings or not b_ratings:
             continue
-            
-        # Update based on winner
+        
         margin = abs(red_score - blue_score)
         if red_score > blue_score:
+            # Standard weight for season matches (using imported update_trueskill)
             update_trueskill(r_ratings, b_ratings, margin)
         elif blue_score > red_score:
             update_trueskill(b_ratings, r_ratings, margin)
+    
+    # ══════════════════════════════════════════════════════════════
+    # PHASE 2: Regression to mean before Worlds
+    # A team that was an 80 from dominating a weak regional field should NOT
+    # carry that full advantage into Worlds. We regress everyone toward the
+    # global mean to represent the uncertainty of a new competitive context.
+    #
+    # This is inspired by the same concept in sports analytics (e.g., baseball
+    # preseason projections regress toward league average).
+    # ══════════════════════════════════════════════════════════════
+    if ratings and worlds_matches:
+        global_mean = sum(r.mu for r in ratings.values()) / len(ratings)
+        for team, r in ratings.items():
+            # Pull 35% toward the global mean
+            # A team at 80 with a global mean of 30 becomes: 80*0.65 + 30*0.35 = 62.5
+            # A team at 30 stays roughly at: 30*0.65 + 30*0.35 = 30
+            r.mu = r.mu * 0.65 + global_mean * 0.35
+            
+            # Increase uncertainty — we're less sure how season form translates to Worlds.
+            # This also makes the system MORE responsive to Worlds results (higher sigma = 
+            # bigger updates per match), which is exactly what we want.
+            r.sigma = min(r.sigma + 1.5, 6.0)
+    
+    # ══════════════════════════════════════════════════════════════
+    # PHASE 3: Worlds matches — heavily weighted with teammate protection
+    # These are the matches that ACTUALLY matter for predictions.
+    # - Weight = 1.8x (Worlds results override season baselines quickly)
+    # - Teammate protection ON (don't punish a good team for having a bad
+    #   random partner — this is qual matches, partners are assigned randomly)
+    # ══════════════════════════════════════════════════════════════
+    WORLDS_WEIGHT = 1.8  # 80% stronger updates than normal season matches
+    
+    for started, match in worlds_matches:
+        red_teams, blue_teams, red_score, blue_score = _parse_match(match)
+        
+        for t in red_teams + blue_teams:
+            if t not in ratings:
+                ratings[t] = TrueSkillRating()
+        
+        if red_score == 0 and blue_score == 0:
+            continue
+            
+        r_ratings = [ratings[t] for t in red_teams]
+        b_ratings = [ratings[t] for t in blue_teams]
+        
+        if not r_ratings or not b_ratings:
+            continue
+        
+        margin = abs(red_score - blue_score)
+        if red_score > blue_score:
+            weighted_update_trueskill(r_ratings, b_ratings, margin,
+                                      weight=WORLDS_WEIGHT, teammate_protect=True)
+        elif blue_score > red_score:
+            weighted_update_trueskill(b_ratings, r_ratings, margin,
+                                      weight=WORLDS_WEIGHT, teammate_protect=True)
             
     return ratings
 
