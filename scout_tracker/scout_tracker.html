@@ -167,9 +167,113 @@
             margin-top: 4px;
         }
 
-        .watchlist {
+        .watchlist, .notes-grid {
             display: grid;
             gap: 15px;
+        }
+
+        /* Tab Styles */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            padding: 12px 30px;
+            border-radius: 14px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+        }
+
+        .tab.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        /* Notes View Styles */
+        .notes-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .search-box {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            text-align: left;
+            padding-left: 45px;
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1rem;
+            opacity: 0.5;
+        }
+
+        .note-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .note-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .note-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .note-card-team {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .note-content {
+            color: var(--text);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            margin-bottom: 15px;
         }
 
         .match-card {
@@ -482,12 +586,31 @@
             <button class="btn-refresh" onclick="fetchData()">Update Watchlist</button>
         </div>
 
-        <div class="stats-bar" id="statsBar">
-            <!-- Stats populated by JS -->
+        <div class="tabs">
+            <div class="tab active" id="tabWatchlist" onclick="switchTab('watchlist')">Watchlist</div>
+            <div class="tab" id="tabNotes" onclick="switchTab('notes')">All Team Notes</div>
         </div>
 
-        <div class="watchlist" id="watchlist">
-            <div class="empty-state">Enter current match number and update to see who to scout...</div>
+        <div id="watchlistSection" class="view-section active">
+            <div class="stats-bar" id="statsBar">
+                <!-- Stats populated by JS -->
+            </div>
+
+            <div class="watchlist" id="watchlist">
+                <div class="empty-state">Enter current match number and update to see who to scout...</div>
+            </div>
+        </div>
+
+        <div id="notesSection" class="view-section">
+            <div class="notes-controls">
+                <div class="search-box">
+                    <input type="text" id="noteSearch" placeholder="Search team or note content..." oninput="renderNotes()">
+                </div>
+                <button class="btn-save" style="margin-top: 0; padding: 12px 20px;" onclick="openNotesModal('')">+ Add Team Note</button>
+            </div>
+            <div class="notes-grid" id="notesGrid">
+                <!-- Notes populated by JS -->
+            </div>
         </div>
     </div>
 
@@ -513,6 +636,65 @@
     <script>
         const API_BASE = 'http://127.0.0.1:5005/api';
         let currentEditingTeam = null;
+        let allNotes = {};
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+
+            if (tabName === 'watchlist') {
+                document.getElementById('tabWatchlist').classList.add('active');
+                document.getElementById('watchlistSection').classList.add('active');
+                fetchData();
+            } else {
+                document.getElementById('tabNotes').classList.add('active');
+                document.getElementById('notesSection').classList.add('active');
+                fetchNotes();
+            }
+        }
+
+        async function fetchNotes() {
+            const loader = document.getElementById('loader');
+            loader.style.display = 'flex';
+            try {
+                const response = await fetch(`${API_BASE}/notes`);
+                allNotes = await response.json();
+                renderNotes();
+            } catch (error) {
+                console.error('Error fetching notes:', error);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        function renderNotes() {
+            const grid = document.getElementById('notesGrid');
+            const search = document.getElementById('noteSearch').value.toLowerCase();
+            
+            const filteredTeams = Object.keys(allNotes).filter(team => {
+                return team.toLowerCase().includes(search) || allNotes[team].toLowerCase().includes(search);
+            }).sort((a, b) => {
+                // Numeric sort for team numbers
+                const aNum = parseInt(a) || 0;
+                const bNum = parseInt(b) || 0;
+                return aNum - bNum;
+            });
+
+            if (filteredTeams.length === 0) {
+                grid.innerHTML = '<div class="empty-state">No notes found matching your search.</div>';
+                return;
+            }
+
+            grid.innerHTML = filteredTeams.map(team => `
+                <div class="note-card">
+                    <div class="note-card-header">
+                        <div class="note-card-team">${team}</div>
+                        <button class="btn-note" onclick="openNotesModal('${team}')">Edit Note</button>
+                    </div>
+                    <div class="note-content">${allNotes[team]}</div>
+                </div>
+            `).join('');
+        }
 
         async function fetchData() {
             const currentMatch = document.getElementById('currentMatch').value;
@@ -589,7 +771,15 @@
         // Notes Logic
         async function openNotesModal(teamNumber) {
             currentEditingTeam = teamNumber;
-            document.getElementById('modalTeamNum').innerText = teamNumber;
+            
+            // If teamNumber is empty, it's a new team
+            if (!teamNumber) {
+                const manualTeam = prompt("Enter Team Number:");
+                if (!manualTeam) return;
+                currentEditingTeam = manualTeam.toUpperCase();
+            }
+
+            document.getElementById('modalTeamNum').innerText = currentEditingTeam;
             document.getElementById('notesArea').value = 'Loading...';
             
             const modal = document.getElementById('notesModal');
@@ -598,8 +788,8 @@
 
             try {
                 const response = await fetch(`${API_BASE}/notes`);
-                const allNotes = await response.json();
-                document.getElementById('notesArea').value = allNotes[teamNumber] || '';
+                allNotes = await response.json();
+                document.getElementById('notesArea').value = allNotes[currentEditingTeam] || '';
             } catch (error) {
                 console.error('Error fetching notes:', error);
                 document.getElementById('notesArea').value = 'Error loading notes.';
@@ -639,7 +829,11 @@
                     saveBtn.innerText = 'Saved!';
                     setTimeout(() => {
                         closeNotesModal();
-                        fetchData(); // Refresh to update note indicators
+                        if (document.getElementById('notesSection').classList.contains('active')) {
+                            fetchNotes();
+                        } else {
+                            fetchData(); // Refresh to update note indicators
+                        }
                     }, 500);
                 } else {
                     alert('Failed to save note.');
