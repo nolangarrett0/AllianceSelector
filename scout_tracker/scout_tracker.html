@@ -609,6 +609,12 @@
         function closeNotesModal() {
             const modal = document.getElementById('notesModal');
             modal.classList.remove('active');
+            
+            // Reset save button state
+            const saveBtn = document.querySelector('.btn-save');
+            saveBtn.innerText = 'Save Notes';
+            saveBtn.disabled = false;
+            
             setTimeout(() => modal.style.display = 'none', 300);
             currentEditingTeam = null;
         }
@@ -618,7 +624,6 @@
 
             const note = document.getElementById('notesArea').value;
             const saveBtn = document.querySelector('.btn-save');
-            const originalText = saveBtn.innerText;
             
             saveBtn.innerText = 'Saving...';
             saveBtn.disabled = true;
