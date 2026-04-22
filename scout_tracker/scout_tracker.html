@@ -307,6 +307,161 @@
             }
             h1 { font-size: 2.5rem; }
         }
+
+        /* Notes Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: rgba(30, 30, 40, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: white;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            margin-bottom: 20px;
+            transition: border-color 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-save {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-save:hover {
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .note-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 4px;
+            font-size: 0.6rem;
+            color: white;
+            margin-left: 6px;
+            vertical-align: middle;
+            box-shadow: 0 0 5px var(--accent-glow);
+        }
+
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .btn-note {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: 700;
+            transition: all 0.2s ease;
+        }
+
+        .btn-note:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -340,8 +495,24 @@
         <div class="spinner"></div>
     </div>
 
+    <!-- Notes Modal -->
+    <div class="modal-overlay" id="notesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Team <span id="modalTeamNum">----</span> Notes</div>
+                <button class="modal-close" onclick="closeNotesModal()">&times;</button>
+            </div>
+            <textarea id="notesArea" placeholder="Record observations, auto-autonomous patterns, driver behavior..."></textarea>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeNotesModal()">Cancel</button>
+                <button class="btn-save" onclick="saveNotes()">Save Notes</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const API_URL = 'http://127.0.0.1:5005/api/scout-data';
+        const API_BASE = 'http://127.0.0.1:5005/api';
+        let currentEditingTeam = null;
 
         async function fetchData() {
             const currentMatch = document.getElementById('currentMatch').value;
@@ -352,7 +523,7 @@
             loader.style.display = 'flex';
 
             try {
-                const response = await fetch(`${API_URL}?current_match=${currentMatch}`);
+                const response = await fetch(`${API_BASE}/scout-data?current_match=${currentMatch}`);
                 const data = await response.json();
 
                 if (data.status === 'success') {
@@ -385,7 +556,13 @@
                                 <div class="teams-grid">
                                     ${match.teams.map(team => `
                                         <div class="team-pill ${team.relationship.toLowerCase()}">
-                                            <div class="team-num" style="color: ${team.color === 'red' ? '#ff5252' : '#448aff'}">${team.number}</div>
+                                            <div class="team-header">
+                                                <div class="team-num" style="color: ${team.color === 'red' ? '#ff5252' : '#448aff'}">
+                                                    ${team.number}
+                                                    ${team.has_notes ? '<span class="note-indicator" title="Has notes">📝</span>' : ''}
+                                                </div>
+                                                <button class="btn-note" onclick="openNotesModal('${team.number}')">Notes</button>
+                                            </div>
                                             <div class="team-rel ${team.relationship.toLowerCase()}">${team.relationship}</div>
                                             <div class="team-our-match">You play them in Q${team.our_match}</div>
                                         </div>
@@ -407,6 +584,69 @@
             if (!isoStr) return 'TBD';
             const date = new Date(isoStr);
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Notes Logic
+        async function openNotesModal(teamNumber) {
+            currentEditingTeam = teamNumber;
+            document.getElementById('modalTeamNum').innerText = teamNumber;
+            document.getElementById('notesArea').value = 'Loading...';
+            
+            const modal = document.getElementById('notesModal');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
+
+            try {
+                const response = await fetch(`${API_BASE}/notes`);
+                const allNotes = await response.json();
+                document.getElementById('notesArea').value = allNotes[teamNumber] || '';
+            } catch (error) {
+                console.error('Error fetching notes:', error);
+                document.getElementById('notesArea').value = 'Error loading notes.';
+            }
+        }
+
+        function closeNotesModal() {
+            const modal = document.getElementById('notesModal');
+            modal.classList.remove('active');
+            setTimeout(() => modal.style.display = 'none', 300);
+            currentEditingTeam = null;
+        }
+
+        async function saveNotes() {
+            if (!currentEditingTeam) return;
+
+            const note = document.getElementById('notesArea').value;
+            const saveBtn = document.querySelector('.btn-save');
+            const originalText = saveBtn.innerText;
+            
+            saveBtn.innerText = 'Saving...';
+            saveBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/notes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ team: currentEditingTeam, note: note })
+                });
+
+                if (response.ok) {
+                    saveBtn.innerText = 'Saved!';
+                    setTimeout(() => {
+                        closeNotesModal();
+                        fetchData(); // Refresh to update note indicators
+                    }, 500);
+                } else {
+                    alert('Failed to save note.');
+                    saveBtn.innerText = originalText;
+                    saveBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error saving note:', error);
+                alert('Error saving note.');
+                saveBtn.innerText = originalText;
+                saveBtn.disabled = false;
+            }
         }
 
         // Auto-fetch on enter

@@ -20,6 +20,27 @@ EVENT_ID = 64025
 DIVISION_ID = 7
 OUR_TEAM_NUMBER = "8568A"
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+NOTES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "team_notes.json")
+
+def load_notes():
+    if os.path.exists(NOTES_FILE):
+        try:
+            with open(NOTES_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading notes: {e}")
+            return {}
+    return {}
+
+def save_notes(notes):
+    try:
+        with open(NOTES_FILE, 'w') as f:
+            json.dump(notes, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error saving notes: {e}")
+        return False
+
 
 def get_match_number(match_name):
     """Extracts the number from a match name like 'Qualifier #12' or 'Q12'."""
@@ -49,9 +70,34 @@ def fetch_all_matches():
         page += 1
     return matches
 
+@app.route('/api/notes', methods=['GET'])
+def get_notes():
+    return jsonify(load_notes())
+
+@app.route('/api/notes', methods=['POST'])
+def update_note():
+    data = request.json
+    team = data.get('team')
+    note = data.get('note')
+    
+    if not team:
+        return jsonify({'status': 'error', 'message': 'Team number required'}), 400
+    
+    notes = load_notes()
+    if note and note.strip():
+        notes[team] = note
+    elif team in notes:
+        del notes[team]
+    
+    if save_notes(notes):
+        return jsonify({'status': 'success'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Failed to save note'}), 500
+
 @app.route('/api/scout-data', methods=['GET'])
 def get_scout_data():
     current_match = request.args.get('current_match', default=0, type=int)
+    notes = load_notes()
     
     all_matches = fetch_all_matches()
     
@@ -120,7 +166,8 @@ def get_scout_data():
                         'number': team_name,
                         'color': color,
                         'relationship': active_targets[team_name]['relationship'],
-                        'our_match': active_targets[team_name]['match_with_us']
+                        'our_match': active_targets[team_name]['match_with_us'],
+                        'has_notes': team_name in notes and bool(notes[team_name].strip())
                     })
         
         if teams_to_watch:
