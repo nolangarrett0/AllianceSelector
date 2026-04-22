@@ -112,19 +112,14 @@ def get_scout_data():
         if OUR_TEAM_NUMBER in teams_in_match:
             our_matches.append(m)
     
-    # 2. Identify partners and opponents for each of our matches
-    targets = {} # team_name -> { 'match_with_us': int, 'relationship': 'Partner'|'Opponent' }
+    # 2. Identify all matches with each team
+    team_encounters = {} # team_name -> list of { 'match_num': int, 'relationship': 'Partner'|'Opponent' }
     
     for m in our_matches:
         our_match_num = get_match_number(m['name'])
         
         for alliance in m.get('alliances', []):
-            is_our_alliance = False
-            for t in alliance.get('teams', []):
-                if t['team']['name'] == OUR_TEAM_NUMBER:
-                    is_our_alliance = True
-                    break
-            
+            is_our_alliance = any(t['team']['name'] == OUR_TEAM_NUMBER for t in alliance.get('teams', []))
             relationship = "Partner" if is_our_alliance else "Opponent"
             
             for t in alliance.get('teams', []):
@@ -132,19 +127,25 @@ def get_scout_data():
                 if team_name == OUR_TEAM_NUMBER:
                     continue
                 
-                # If we play a team multiple times, prioritize the earliest one for scouting
-                if team_name not in targets or our_match_num < targets[team_name]['match_with_us']:
-                    targets[team_name] = {
-                        'match_with_us': our_match_num,
-                        'relationship': relationship
-                    }
+                if team_name not in team_encounters:
+                    team_encounters[team_name] = []
+                
+                team_encounters[team_name].append({
+                    'match_num': our_match_num,
+                    'relationship': relationship
+                })
 
-    # 3. Filter targets based on current_match
-    # Remove teams we've already played with/against in ALL their matches with us
-    active_targets = {}
-    for team, info in targets.items():
-        if info['match_with_us'] >= current_match:
-            active_targets[team] = info
+    # 3. For each team, find the NEXT match with us (the first one >= current_match)
+    active_targets = {} # team_name -> { 'our_match': int, 'relationship': str }
+    for team, encounters in team_encounters.items():
+        # Encounters are already sorted because our_matches was built from sorted all_matches
+        for enc in encounters:
+            if enc['match_num'] >= current_match:
+                active_targets[team] = {
+                    'our_match': enc['match_num'],
+                    'relationship': enc['relationship']
+                }
+                break # Found the first upcoming match with this team
 
     # 4. Aggregate matches to watch
     watchlist = []
@@ -162,13 +163,16 @@ def get_scout_data():
             for t in alliance.get('teams', []):
                 team_name = t['team']['name']
                 if team_name in active_targets:
-                    teams_to_watch.append({
-                        'number': team_name,
-                        'color': color,
-                        'relationship': active_targets[team_name]['relationship'],
-                        'our_match': active_targets[team_name]['match_with_us'],
-                        'has_notes': team_name in notes and bool(notes[team_name].strip())
-                    })
+                    # User request: "if we are versing a team in q108 - we shouldnt have their matches for q109+"
+                    # So only include if the match we are watching is BEFORE our match with them.
+                    if match_num < active_targets[team_name]['our_match']:
+                        teams_to_watch.append({
+                            'number': team_name,
+                            'color': color,
+                            'relationship': active_targets[team_name]['relationship'],
+                            'our_match': active_targets[team_name]['our_match'],
+                            'has_notes': team_name in notes and bool(notes[team_name].strip())
+                        })
         
         if teams_to_watch:
             watchlist.append({
