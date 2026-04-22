@@ -587,6 +587,12 @@ def detect_fraud(team_data, global_avg_sp, h2h_losses):
     if rank > 12:
         return False, [], 0
     
+    # Need at least 3 matches of data before calling anyone a fraud
+    # With 1-2 matches the stats are meaningless noise
+    total_matches = team_data.get('Wins', 0) + team_data.get('Losses', 0)
+    if total_matches < 3:
+        return False, [], 0
+    
     # LOST TO LOWER RANKED: This should NOT happen for a top team
     losses_to_lower = team_data.get('Losses_to_Lower_This_Event', 0)
     if losses_to_lower >= 2:
@@ -787,6 +793,12 @@ def train_model():
                 if match_data:
                     for match in match_data.get('data', []):
                         match_name = match.get('name', '')
+                        match_round = match.get('round', 2)
+                        
+                        # Skip practice matches in training data too
+                        if match_round == 1 or 'practice' in match_name.lower():
+                            continue
+                        
                         is_elim, _, _ = is_elim_match(match_name)
                         
                         alliances = match.get('alliances', [])
@@ -798,6 +810,10 @@ def train_model():
                         r_score = alliance_dict.get('red', {}).get('score', 0)
                         b_score = alliance_dict.get('blue', {}).get('score', 0)
                         
+                        # Skip unplayed matches in training data
+                        if r_score == 0 and b_score == 0:
+                            continue
+                            
                         # Record scores and elim results
                         for color in ['red', 'blue']:
                             score = alliance_dict.get(color, {}).get('score', 0)
@@ -1158,6 +1174,13 @@ def analyze_event(sku, api_key, my_team, division_id=None):
             
             for match in match_data['data']:
                 match_name = match.get('name', '')
+                match_round = match.get('round', 2)  # 1=Practice, 2=Qual, 3+=Elims
+                
+                # Skip practice matches - they don't count in rankings
+                # and would corrupt our stats (losses in practice ≠ real losses)
+                if match_round == 1 or 'practice' in match_name.lower():
+                    continue
+                
                 is_elim, elim_round, elim_weight = is_elim_match(match_name)
                 
                 alliances = match.get('alliances', [])
@@ -1170,6 +1193,11 @@ def analyze_event(sku, api_key, my_team, division_id=None):
                 
                 # Skip invalid matches
                 if not isinstance(r_score, (int, float)) or not isinstance(b_score, (int, float)):
+                    continue
+                    
+                # Skip unplayed matches (score is 0-0)
+                # At Worlds, 0-0 is virtually impossible unless unplayed
+                if r_score == 0 and b_score == 0:
                     continue
                 
                 margin = abs(r_score - b_score)
