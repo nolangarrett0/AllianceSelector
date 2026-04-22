@@ -150,6 +150,9 @@ def weighted_update_trueskill(winner_ratings, loser_ratings, margin=0, weight=1.
                                   good team from getting tanked by a bad random partner.
     """
     beta = 4.1667
+    # Safety cap: no single match can move a team's mu by more than this amount.
+    # Prevents a single blowout loss from destroying a team's rating entirely.
+    MAX_MU_CHANGE = 10
     
     winner_mu = sum(r.mu for r in winner_ratings) / len(winner_ratings)
     winner_sigma = sum(r.sigma**2 for r in winner_ratings)**0.5 / len(winner_ratings)
@@ -164,9 +167,10 @@ def weighted_update_trueskill(winner_ratings, loser_ratings, margin=0, weight=1.
     
     margin_factor = 1 + min(margin / 50, 0.5)
     
-    # Update winners — full weighted reward
+    # Update winners — full weighted reward, capped at MAX_MU_CHANGE
     for r in winner_ratings:
-        r.mu += (r.sigma**2 / c) * v * margin_factor * weight
+        delta = (r.sigma**2 / c) * v * margin_factor * weight
+        r.mu += min(delta, MAX_MU_CHANGE)
         r.sigma = max(1.0, r.sigma * (1 - (r.sigma**2 / c**2) * w * 0.5)**0.5)
     
     # Update losers — with optional per-team teammate protection
@@ -187,12 +191,14 @@ def weighted_update_trueskill(winner_ratings, loser_ratings, margin=0, weight=1.
             else:
                 partner_ratio = 1.0
             loss_factor = 0.4 + 0.6 * partner_ratio
-            r.mu -= (r.sigma**2 / c) * v * margin_factor * weight * loss_factor
+            delta = (r.sigma**2 / c) * v * margin_factor * weight * loss_factor
+            r.mu -= min(delta, MAX_MU_CHANGE)
             r.sigma = max(1.0, r.sigma * (1 - (r.sigma**2 / c**2) * w * 0.5)**0.5)
     else:
         # Standard update (no protection) — used for season history
         for r in loser_ratings:
-            r.mu -= (r.sigma**2 / c) * v * margin_factor * weight
+            delta = (r.sigma**2 / c) * v * margin_factor * weight
+            r.mu -= min(delta, MAX_MU_CHANGE)
             r.sigma = max(1.0, r.sigma * (1 - (r.sigma**2 / c**2) * w * 0.5)**0.5)
 
 
@@ -317,10 +323,10 @@ def calculate_ratings(season_history, live_matches):
             # A team at 30 stays roughly at: 30*0.65 + 30*0.35 = 30
             r.mu = r.mu * 0.65 + global_mean * 0.35
             
-            # Increase uncertainty — we're less sure how season form translates to Worlds.
-            # This also makes the system MORE responsive to Worlds results (higher sigma = 
-            # bigger updates per match), which is exactly what we want.
-            r.sigma = min(r.sigma + 1.5, 6.0)
+            # Increase uncertainty slightly — we're less sure how season form translates
+            # to Worlds. A moderate bump (0.8) makes the system responsive to Worlds results
+            # without letting a single match cause extreme rating swings.
+            r.sigma = min(r.sigma + 0.8, 6.0)
     
     # ══════════════════════════════════════════════════════════════
     # PHASE 3: Worlds matches — heavily weighted with teammate protection
@@ -356,6 +362,19 @@ def calculate_ratings(season_history, live_matches):
                                       weight=WORLDS_WEIGHT, teammate_protect=True)
             
     return ratings
+
+def normalize_match_name(name):
+    """Normalize match names so config format ('P 2', 'Q 14') matches
+    API format ('Practice 2', 'Qualifier #14', 'Qualifier 14').
+    Returns a canonical key like 'P2', 'Q14', etc."""
+    n = name.strip()
+    # Replace full names with abbreviations
+    n = n.replace('Practice', 'P').replace('Qualifier', 'Q').replace('Final', 'F')
+    # Strip '#' and extra spaces, collapse to single-space, then remove spaces
+    n = n.replace('#', '')
+    # Remove all spaces to get a compact key like 'P2', 'Q14'
+    n = ''.join(n.split())
+    return n
 
 @app.route('/api/predictions', methods=['GET'])
 def get_predictions():
@@ -397,23 +416,30 @@ def get_predictions():
     
     predictions = []
     
-    # Collect all mu values for the teams in the schedule to build a percentile scale
-    schedule_teams = get_unique_teams(config['matches'])
-    schedule_mus = []
-    for t in schedule_teams:
-        r = ratings.get(t)
-        if r:
-            schedule_mus.append(r.mu)
-    
-    mu_min = min(schedule_mus) if schedule_mus else 15
-    mu_max = max(schedule_mus) if schedule_mus else 50
-    mu_range = mu_max - mu_min if mu_max > mu_min else 1
+    # ── Build a lookup of actual match results from live data ──
+    # Keyed by normalized match name so we can cross-reference config names
+    # (e.g. "Q 14") with API names (e.g. "Qualifier #14")
+    live_results = {}
+    for m in live_matches:
+        red_teams, blue_teams, red_score, blue_score = _parse_match(m)
+        is_played = m.get('started') is not None or red_score != 0 or blue_score != 0
+        if is_played:
+            if red_score > blue_score:
+                actual_winner = "Red"
+            elif blue_score > red_score:
+                actual_winner = "Blue"
+            else:
+                actual_winner = "Tie"
+            live_results[normalize_match_name(m['name'])] = {
+                "red_score": red_score,
+                "blue_score": blue_score,
+                "actual_winner": actual_winner
+            }
     
     def to_power_rating(mu):
-        # Percentile-based: maps the lowest-rated schedule team to ~5
-        # and the highest-rated to ~99, with everyone else spread between
-        val = ((mu - mu_min) / mu_range) * 94 + 5
-        return max(0, min(100, round(val, 1)))
+        # Display-only: scale mu up 2x so numbers feel more substantial in the UI.
+        # Does NOT affect predictions — those use raw mu internally.
+        return round(mu * 2, 1)
     
     def win_probability(team_a_mus, team_a_sigmas, team_b_mus, team_b_sigmas):
         """
@@ -469,7 +495,7 @@ def get_predictions():
         red_power_sum = r1_r.mu + r2_r.mu
         blue_power_sum = b1_r.mu + b2_r.mu
         
-        predictions.append({
+        prediction_data = {
             "match": match['name'],
             "time": match['time'],
             "red": match['red'],
@@ -490,7 +516,24 @@ def get_predictions():
                 "explanation": f"Red Alliance combined TrueSkill: {red_power_sum:.1f} (win prob {red_conf}%). Blue Alliance combined TrueSkill: {blue_power_sum:.1f} (win prob {blue_conf}%). " + 
                                (f"Red is favored by {red_power_sum - blue_power_sum:.1f} skill points." if winner == "Red" else f"Blue is favored by {blue_power_sum - red_power_sum:.1f} skill points." if winner == "Blue" else "This match is essentially a coin flip.")
             }
-        })
+        }
+        
+        # ── Attach actual results if this match has been played ──
+        actual = live_results.get(normalize_match_name(match['name']))
+        if actual:
+            prediction_correct = (winner == actual['actual_winner']) or \
+                                 (winner == "Toss-Up" and actual['actual_winner'] == "Tie")
+            prediction_data["actual_result"] = {
+                "played": True,
+                "red_score": actual['red_score'],
+                "blue_score": actual['blue_score'],
+                "actual_winner": actual['actual_winner'],
+                "prediction_correct": prediction_correct
+            }
+        else:
+            prediction_data["actual_result"] = {"played": False}
+        
+        predictions.append(prediction_data)
         
     fetch_progress["status"] = "idle"
     

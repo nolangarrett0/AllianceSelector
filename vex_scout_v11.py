@@ -1019,7 +1019,7 @@ def calculate_synergy(my_stats, partner):
 # 7. Returns comprehensive analysis
 # =============================================================================
 
-def analyze_event(sku, api_key, my_team):
+def analyze_event(sku, api_key, my_team, division_id=None):
     """
     Performs comprehensive analysis of a VEX event.
     
@@ -1027,6 +1027,9 @@ def analyze_event(sku, api_key, my_team):
         sku (str): Event SKU (e.g., "RE-V5RC-25-1234")
         api_key (str): RobotEvents API key
         my_team (str): User's team number (e.g., "8568A")
+        division_id (int or None): Specific division ID to analyze.
+            If None, analyzes ALL divisions. Use /api/divisions to
+            get available division IDs for an event.
     
     Returns:
         dict: Complete analysis including:
@@ -1063,7 +1066,18 @@ def analyze_event(sku, api_key, my_team):
     
     event_id = event_data['data'][0]['id']
     event_name = event_data['data'][0]['name']
-    divisions = event_data['data'][0].get('divisions', [{'id': 1}])
+    all_divisions = event_data['data'][0].get('divisions', [{'id': 1}])
+    
+    # Filter to specific division if requested
+    if division_id is not None:
+        divisions = [d for d in all_divisions if d['id'] == division_id]
+        if not divisions:
+            progress = {'status': 'error', 'step': 'Division not found', 'percent': 0, 'detail': ''}
+            return None
+        div_name = divisions[0].get('name', f'Division {division_id}')
+        event_name = f"{event_name} - {div_name}"
+    else:
+        divisions = all_divisions
     
     print(f"\n📊 Analyzing: {event_name}")
     progress = {'status': 'running', 'step': 'Found event', 'percent': 10, 'detail': event_name}
@@ -1835,13 +1849,50 @@ def index():
         return "index.html not found", 404
 
 
+@app.route('/api/divisions', methods=['POST'])
+def api_divisions():
+    """
+    Returns available divisions for an event.
+    Use this to populate a division selector dropdown.
+    
+    POST body:
+        {eventSku, apiKey (optional)}
+    
+    Returns:
+        {divisions: [{id, name}, ...], eventName}
+    """
+    req = request.json
+    api_key = req.get('apiKey') or API_KEY
+    sku = req.get('eventSku')
+    
+    if not sku:
+        return jsonify({'error': 'Need SKU'}), 400
+    
+    headers = {"Authorization": f"Bearer {api_key}"}
+    event_data = safe_request(
+        f"https://www.robotevents.com/api/v2/events?sku={sku}",
+        headers
+    )
+    
+    if not event_data or not event_data.get('data'):
+        return jsonify({'error': 'Event not found'}), 404
+    
+    event = event_data['data'][0]
+    divisions = event.get('divisions', [])
+    
+    return jsonify({
+        'eventName': event['name'],
+        'divisions': [{'id': d['id'], 'name': d.get('name', f"Division {d['id']}")} for d in divisions]
+    })
+
+
 @app.route('/api/analyze', methods=['POST'])
 def api_analyze():
     """
     Main analysis endpoint - analyzes an event.
     
     POST body:
-        {apiKey, eventSku, myTeam}
+        {apiKey, eventSku, myTeam, divisionId (optional)}
     
     Returns:
         Complete analysis JSON
@@ -1852,12 +1903,20 @@ def api_analyze():
     api_key = req.get('apiKey') or API_KEY
     sku = req.get('eventSku')
     my_team = req.get('myTeam', '')
+    division_id = req.get('divisionId')  # None = all divisions
+    
+    # Convert to int if provided
+    if division_id is not None:
+        try:
+            division_id = int(division_id)
+        except (ValueError, TypeError):
+            division_id = None
     
     if not sku:
         return jsonify({'error': 'Need SKU'}), 400
     
     try:
-        result = analyze_event(sku, api_key, my_team)
+        result = analyze_event(sku, api_key, my_team, division_id)
         if not result:
             return jsonify({'error': 'No data'}), 404
         
@@ -1866,6 +1925,7 @@ def api_analyze():
             'sku': sku,
             'api_key': api_key,
             'my_team': my_team,
+            'division_id': division_id,
             'result': result
         }
         return jsonify(result)
@@ -1887,7 +1947,8 @@ def api_refresh():
         result = analyze_event(
             cached_data['sku'],
             cached_data['api_key'],
-            cached_data['my_team']
+            cached_data['my_team'],
+            cached_data.get('division_id')
         )
         if not result:
             return jsonify({'error': 'Refresh failed'}), 404

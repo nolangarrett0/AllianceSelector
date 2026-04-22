@@ -177,6 +177,28 @@
         
         select {
             min-width: 120px;
+            background-color: #1a1a2e;
+            color: var(--text);
+            cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 14px;
+            padding-right: 28px;
+        }
+        
+        select option {
+            background: #1a1a2e;
+            color: var(--text);
+            padding: 8px;
+        }
+        
+        select option:checked {
+            background: var(--accent);
+            color: white;
         }
         
         input:focus, select:focus {
@@ -681,6 +703,9 @@ const App = () => {
     const [apiKey, setApiKey] = useState('');          // Optional custom API key
     const [sku, setSku] = useState('');                // Event SKU (e.g., RE-V5RC-25-1234)
     const [myTeam, setMyTeam] = useState('');          // User's team number
+    const [divisionId, setDivisionId] = useState('');  // Selected division ID ('' = all)
+    const [divisions, setDivisions] = useState([]);    // Available divisions for event
+    const [loadingDivisions, setLoadingDivisions] = useState(false); // Loading divisions indicator
     
     // Data from API
     const [data, setData] = useState(null);            // Full analysis data
@@ -729,6 +754,39 @@ const App = () => {
             .catch(() => {});
     }, []);
 
+    /*
+     * Fetches available divisions when SKU is entered
+     */
+    const fetchDivisions = async (eventSku) => {
+        if (!eventSku || eventSku.length < 5) {
+            setDivisions([]);
+            setDivisionId('');
+            return;
+        }
+        
+        setLoadingDivisions(true);
+        try {
+            const response = await fetch('/api/divisions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ eventSku, apiKey })
+            });
+            const result = await response.json();
+            if (result.divisions) {
+                setDivisions(result.divisions);
+                // Auto-select if only one division
+                if (result.divisions.length === 1) {
+                    setDivisionId(result.divisions[0].id.toString());
+                }
+            } else {
+                setDivisions([]);
+            }
+        } catch (e) {
+            setDivisions([]);
+        }
+        setLoadingDivisions(false);
+    };
+
     // =============================
     // API FUNCTIONS
     // =============================
@@ -750,7 +808,7 @@ const App = () => {
             const response = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apiKey, eventSku: sku, myTeam })
+                body: JSON.stringify({ apiKey, eventSku: sku, myTeam, divisionId: divisionId || null })
             });
             
             const result = await response.json();
@@ -1272,16 +1330,40 @@ const App = () => {
                                     placeholder="RE-V5RC-25-XXXX" 
                                     value={sku} 
                                     onChange={e => setSku(e.target.value)}
+                                    onBlur={e => fetchDivisions(e.target.value)}
                                 />
                             </div>
                         </div>
-                        <div style={{ marginBottom: '8px' }}>
-                            <label style={{ fontSize: '8px', color: 'var(--dim)' }}>Your Team (for synergy calculations)</label>
-                            <input 
-                                placeholder="e.g. 8568A" 
-                                value={myTeam} 
-                                onChange={e => setMyTeam(e.target.value)}
-                            />
+                        <div className="grid grid-2" style={{ marginBottom: '8px' }}>
+                            <div>
+                                <label style={{ fontSize: '8px', color: 'var(--dim)' }}>Your Team (for synergy calculations)</label>
+                                <input 
+                                    placeholder="e.g. 8568A" 
+                                    value={myTeam} 
+                                    onChange={e => setMyTeam(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '8px', color: 'var(--dim)' }}>
+                                    Division {loadingDivisions && '⏳'}
+                                    {divisions.length > 1 && <span style={{ color: 'var(--orange)' }}> ({divisions.length} available)</span>}
+                                </label>
+                                <select 
+                                    value={divisionId} 
+                                    onChange={e => setDivisionId(e.target.value)}
+                                    style={{ width: '100%' }}
+                                >
+                                    <option value="">All Divisions</option>
+                                    {divisions.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                                {!divisions.length && sku && (
+                                    <div style={{ fontSize: '8px', color: 'var(--dim)', marginTop: '2px' }}>
+                                        Tab out of SKU field to load divisions
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <button 
                             className="btn btn-primary" 
@@ -1347,7 +1429,7 @@ const App = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {getSortedLeaderboard().slice(0, 50).map((t, i) => (
+                                    {getSortedLeaderboard().map((t, i) => (
                                         <TeamRow key={i} team={t} rank={i} showElim={true} />
                                     ))}
                                 </tbody>
