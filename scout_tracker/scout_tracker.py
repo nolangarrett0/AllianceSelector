@@ -228,7 +228,13 @@ def calculate_ratings(live_matches):
         elif blue_score > red_score:
             weighted_update_trueskill(b_rats, r_rats, margin, weight=WORLDS_WEIGHT, teammate_protect=True)
             
-    return {team: round(r.mu * 2, 1) for team, r in ratings.items()}
+    return {
+        team: {
+            'rating': round(r.mu * 2, 1),
+            'confidence': round(max(0, (1 - (r.sigma - 1.0) / (8.333 - 1.0)) * 100))
+        }
+        for team, r in ratings.items()
+    }
 
 @app.route('/api/notes', methods=['GET'])
 def get_notes():
@@ -319,6 +325,7 @@ def get_scout_data():
                         'number': t_name, 'color': color, 
                         'relationship': active_targets[t_name]['relationship'],
                         'our_match': active_targets[t_name]['our_match'],
+                        'confidence': ratings.get(t_name, {}).get('confidence', 0),
                         'has_notes': t_name in notes and bool(notes[t_name].strip())
                     })
         
@@ -343,11 +350,27 @@ def get_scout_data():
                 team_matches.append({
                     'match_num': get_match_number(m['name']),
                     'name': m['name'],
-                    'partner': {'number': partner_name, 'rating': ratings.get(partner_name, 25.0 * 2), 'has_notes': partner_name in notes and bool(notes[partner_name].strip())} if partner_name else None,
-                    'opponents': [{'number': t, 'rating': ratings.get(t, 25.0 * 2), 'has_notes': t in notes and bool(notes[t].strip())} for t in opponents],
+                    'partner': {
+                        'number': partner_name, 
+                        'rating': ratings.get(partner_name, {}).get('rating', 50.0),
+                        'confidence': ratings.get(partner_name, {}).get('confidence', 0),
+                        'has_notes': partner_name in notes and bool(notes[partner_name].strip())
+                    } if partner_name else None,
+                    'opponents': [{
+                        'number': t, 
+                        'rating': ratings.get(t, {}).get('rating', 50.0),
+                        'confidence': ratings.get(t, {}).get('confidence', 0),
+                        'has_notes': t in notes and bool(notes[t].strip())
+                    } for t in opponents],
                     'team_color': team_color, 'red_score': rs, 'blue_score': bs
                 })
-        tracked_data.append({'team': team_number, 'rating': ratings.get(team_number, 25.0 * 2), 'matches': sorted(team_matches, key=lambda x: x['match_num'])})
+        team_info = ratings.get(team_number, {'rating': 50.0, 'confidence': 0})
+        tracked_data.append({
+            'team': team_number, 
+            'rating': team_info['rating'],
+            'confidence': team_info['confidence'],
+            'matches': sorted(team_matches, key=lambda x: x['match_num'])
+        })
 
     watchlist.sort(key=lambda x: x['match_num'])
     return jsonify({
