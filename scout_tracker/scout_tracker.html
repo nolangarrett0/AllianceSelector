@@ -19,6 +19,9 @@
             --text-dim: #909090;
             --glass: rgba(255, 255, 255, 0.03);
             --border: rgba(255, 255, 255, 0.08);
+            --rating: #ffd740;
+            --red: #ff5252;
+            --blue: #448aff;
         }
 
         * {
@@ -39,14 +42,14 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 40px 20px;
         }
 
         header {
             text-align: center;
-            margin-bottom: 60px;
+            margin-bottom: 40px;
             position: relative;
         }
 
@@ -79,8 +82,8 @@
             justify-content: center;
             align-items: center;
             gap: 20px;
-            margin-bottom: 50px;
-            padding: 25px;
+            margin-bottom: 40px;
+            padding: 20px;
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 24px;
@@ -106,11 +109,11 @@
             background: rgba(0,0,0,0.3);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 12px 20px;
+            padding: 10px 15px;
             color: white;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1.2rem;
-            width: 120px;
+            font-size: 1.1rem;
+            width: 100px;
             text-align: center;
             transition: all 0.3s ease;
         }
@@ -126,7 +129,7 @@
             color: white;
             border: none;
             border-radius: 12px;
-            padding: 15px 30px;
+            padding: 12px 25px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -138,53 +141,23 @@
             box-shadow: 0 5px 20px var(--accent-glow);
         }
 
-        .stats-bar {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            flex: 1;
-            padding: 15px;
-            background: var(--glass);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            text-align: center;
-        }
-
-        .stat-val {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: white;
-        }
-
-        .stat-label {
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            margin-top: 4px;
-        }
-
-        .watchlist, .notes-grid {
-            display: grid;
-            gap: 15px;
-        }
-
-        /* Tab Styles */
         .tabs {
             display: flex;
             justify-content: center;
-            gap: 15px;
+            gap: 10px;
             margin-bottom: 30px;
+            background: var(--glass);
+            padding: 6px;
+            border-radius: 18px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid var(--border);
         }
 
         .tab {
-            padding: 12px 30px;
+            padding: 10px 25px;
             border-radius: 14px;
-            background: var(--glass);
-            border: 1px solid var(--border);
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s ease;
@@ -192,362 +165,167 @@
             letter-spacing: 0.5px;
         }
 
-        .tab:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-        }
+        .tab:hover { color: white; }
 
         .tab.active {
             background: var(--accent);
             color: white;
-            border-color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
+            box-shadow: 0 0 15px var(--accent-glow);
         }
 
-        .view-section {
-            display: none;
-        }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
 
-        .view-section.active {
-            display: block;
-        }
-
-        /* Notes View Styles */
-        .notes-controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .search-box {
-            flex-grow: 1;
-            position: relative;
-        }
-
-        .search-box input {
-            width: 100%;
-            text-align: left;
-            padding-left: 45px;
-        }
-
-        .search-box::before {
-            content: '🔍';
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1rem;
-            opacity: 0.5;
-        }
-
-        .note-card {
+        /* Card Styles */
+        .match-card, .note-card, .team-detail-card {
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 20px;
             padding: 20px;
+            margin-bottom: 15px;
             transition: all 0.3s ease;
         }
 
-        .note-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
+        /* Teams View Styles */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            gap: 20px;
         }
 
-        .note-card-header {
+        .team-detail-card {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border: 1px solid var(--border);
+        }
+
+        .team-detail-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            padding-bottom: 10px;
             border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
         }
 
-        .note-card-team {
-            font-size: 1.4rem;
-            font-weight: 800;
-            color: var(--accent);
-        }
-
-        .note-content {
-            color: var(--text);
-            font-size: 0.95rem;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            margin-bottom: 15px;
-        }
-
-        .match-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 25px;
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .match-card:hover {
-            transform: translateX(8px);
-            border-color: rgba(255,255,255,0.2);
-            background: rgba(35, 35, 45, 0.8);
-        }
-
-        .match-card::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            height: 100%;
-            width: 4px;
-            background: var(--accent);
-            opacity: 0.3;
-        }
-
-        .match-info {
-            min-width: 100px;
-        }
-
-        .match-num {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: white;
-        }
-
-        .match-time {
+        .team-id { font-size: 2rem; font-weight: 800; color: var(--accent); }
+        .team-rating {
             font-family: 'JetBrains Mono', monospace;
+            color: var(--rating);
+            font-weight: 700;
+            font-size: 1.1rem;
+            background: rgba(255, 215, 64, 0.1);
+            padding: 4px 12px;
+            border-radius: 10px;
+        }
+
+        .team-matches-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .team-match-row {
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tm-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-size: 0.8rem;
             color: var(--text-dim);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 6px;
         }
 
-        .teams-grid {
+        .tm-match-num { font-weight: 800; color: white; font-size: 1.1rem; }
+
+        .tm-alliances {
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            flex-grow: 1;
+            align-items: center;
+            gap: 15px;
         }
 
+        .tm-alliance {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .tm-vs {
+            font-weight: 800;
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            opacity: 0.5;
+        }
+
+        .tm-team-pill {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border: 1px solid transparent;
+        }
+
+        .tm-team-pill.tracked {
+            background: rgba(124, 77, 255, 0.15);
+            border-color: var(--accent);
+        }
+
+        .tm-team-num { font-weight: 700; font-size: 0.95rem; }
+        .tm-team-ts {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--rating);
+            opacity: 0.9;
+        }
+
+        .tm-score-box {
+            display: flex;
+            gap: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 1rem;
+        }
+
+        .score-red { color: var(--red); }
+        .score-blue { color: var(--blue); }
+
+        /* Watchlist Styles */
+        .watchlist { display: grid; gap: 15px; }
+        .match-card { display: flex; align-items: center; gap: 25px; }
+        .match-info { min-width: 90px; }
+        .match-num { font-size: 1.8rem; font-weight: 800; color: white; }
+        .match-time { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-dim); }
+
+        .teams-grid { display: flex; flex-wrap: wrap; gap: 10px; flex-grow: 1; }
         .team-pill {
-            padding: 8px 16px;
-            border-radius: 12px;
+            padding: 10px 15px;
+            border-radius: 14px;
             background: rgba(0,0,0,0.2);
             border: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             min-width: 140px;
         }
+        .team-pill.partner { border-left: 4px solid var(--partner); }
+        .team-pill.opponent { border-left: 4px solid var(--opponent); }
 
-        .team-pill.partner {
-            border-left: 4px solid var(--partner);
-        }
-
-        .team-pill.opponent {
-            border-left: 4px solid var(--opponent);
-        }
-
-        .team-num {
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-
-        .team-rel {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
-        }
-
-        .team-rel.partner { color: var(--partner); }
-        .team-rel.opponent { color: var(--opponent); }
-
-        .team-our-match {
-            font-size: 0.65rem;
-            color: var(--text-dim);
-            margin-top: 2px;
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(10,10,12,0.8);
-            backdrop-filter: blur(8px);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid var(--glass);
-            border-top: 3px solid var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px;
-            color: var(--text-dim);
-            font-style: italic;
-        }
-
-        @media (max-width: 600px) {
-            .match-card {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 15px;
-            }
-            h1 { font-size: 2.5rem; }
-        }
-
-        /* Notes Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(10px);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 200;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        .modal-content {
-            background: rgba(30, 30, 40, 0.8);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 30px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-            transform: scale(0.9);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .modal-overlay.active .modal-content {
-            transform: scale(1);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: var(--accent);
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--text-dim);
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: color 0.3s ease;
-        }
-
-        .modal-close:hover {
-            color: white;
-        }
-
-        textarea {
-            width: 100%;
-            height: 200px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 15px;
-            color: white;
-            font-family: inherit;
-            font-size: 1rem;
-            resize: none;
-            margin-bottom: 20px;
-            transition: border-color 0.3s ease;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 15px;
-        }
-
-        .btn-secondary {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            padding: 10px 20px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .btn-save {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 10px 25px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .btn-save:hover {
-            box-shadow: 0 0 15px var(--accent-glow);
-        }
-
-        .note-indicator {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            background: var(--accent);
-            border-radius: 4px;
-            font-size: 0.6rem;
-            color: white;
-            margin-left: 6px;
-            vertical-align: middle;
-            box-shadow: 0 0 5px var(--accent-glow);
-        }
-
-        .team-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-
+        .team-pill-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .team-pill-num { font-weight: 700; font-size: 1.1rem; }
         .btn-note {
             background: var(--glass);
             border: 1px solid var(--border);
@@ -558,13 +336,93 @@
             cursor: pointer;
             text-transform: uppercase;
             font-weight: 700;
-            transition: all 0.2s ease;
+        }
+        .btn-note:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+        .note-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 4px;
+            font-size: 0.6rem;
+            color: white;
+            margin-left: 5px;
         }
 
-        .btn-note:hover {
-            background: var(--accent);
+        /* Common Elements */
+        .loader-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 3px solid var(--glass);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-dim);
+            font-style: italic;
+            background: var(--glass);
+            border-radius: 24px;
+            border: 1px dashed var(--border);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: #1a1a20;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-title { font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+        .modal-close { background: none; border: none; color: var(--text-dim); font-size: 1.8rem; cursor: pointer; }
+        textarea {
+            width: 100%; height: 200px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
             color: white;
-            border-color: var(--accent);
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            margin-bottom: 20px;
+        }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-save { background: var(--accent); color: white; border: none; padding: 10px 25px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+        .btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 10px 20px; border-radius: 10px; cursor: pointer; }
+
+        @media (max-width: 900px) {
+            .team-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -583,275 +441,243 @@
                 <label for="currentMatch">Current Qual Match</label>
                 <input type="number" id="currentMatch" value="1" min="1">
             </div>
-            <button class="btn-refresh" onclick="fetchData()">Update Watchlist</button>
+            <button class="btn-refresh" onclick="updateAll()">Update Data</button>
         </div>
 
         <div class="tabs">
             <div class="tab active" id="tabWatchlist" onclick="switchTab('watchlist')">Watchlist</div>
-            <div class="tab" id="tabNotes" onclick="switchTab('notes')">All Team Notes</div>
+            <div class="tab" id="tabTeams" onclick="switchTab('teams')">Teams</div>
+            <div class="tab" id="tabNotes" onclick="switchTab('notes')">Notes</div>
         </div>
 
         <div id="watchlistSection" class="view-section active">
-            <div class="stats-bar" id="statsBar">
-                <!-- Stats populated by JS -->
+            <div class="watchlist" id="watchlistContainer">
+                <div class="empty-state">Loading matches...</div>
             </div>
+        </div>
 
-            <div class="watchlist" id="watchlist">
-                <div class="empty-state">Enter current match number and update to see who to scout...</div>
+        <div id="teamsSection" class="view-section">
+            <div class="teams-manager">
+                <div class="controls" style="margin-bottom: 20px; background: var(--glass);">
+                    <input type="text" id="newTeamInput" style="flex-grow:1; width:auto; text-align:left;" placeholder="Add team number (e.g. 1234A)..." onkeydown="if(event.key==='Enter') addTrackedTeam()">
+                    <button class="btn-save" style="margin-top:0" onclick="addTrackedTeam()">Add Team</button>
+                </div>
+                <div class="team-grid" id="trackedTeamsGrid"></div>
             </div>
         </div>
 
         <div id="notesSection" class="view-section">
-            <div class="notes-controls">
-                <div class="search-box">
-                    <input type="text" id="noteSearch" placeholder="Search team or note content..." oninput="renderNotes()">
-                </div>
-                <button class="btn-save" style="margin-top: 0; padding: 12px 20px;" onclick="openNotesModal('')">+ Add Team Note</button>
+            <div class="controls" style="margin-bottom: 20px; background: var(--glass);">
+                <input type="text" id="noteSearch" style="flex-grow:1; width:auto; text-align:left;" placeholder="Search notes..." oninput="renderNotes()">
+                <button class="btn-save" style="margin-top:0" onclick="openNotesModal('')">+ New Note</button>
             </div>
-            <div class="notes-grid" id="notesGrid">
-                <!-- Notes populated by JS -->
-            </div>
+            <div id="notesContainer"></div>
         </div>
     </div>
 
-    <div class="loading-overlay" id="loader">
-        <div class="spinner"></div>
-    </div>
+    <div class="loader-overlay" id="loader"><div class="spinner"></div></div>
 
-    <!-- Notes Modal -->
     <div class="modal-overlay" id="notesModal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-title">Team <span id="modalTeamNum">----</span> Notes</div>
+                <div class="modal-title">Team <span id="modalTeamNum">----</span></div>
                 <button class="modal-close" onclick="closeNotesModal()">&times;</button>
             </div>
-            <textarea id="notesArea" placeholder="Record observations, auto-autonomous patterns, driver behavior..."></textarea>
+            <textarea id="notesArea" placeholder="Record observations..."></textarea>
             <div class="modal-actions">
-                <button class="btn-secondary" onclick="closeNotesModal()">Cancel</button>
-                <button class="btn-save" onclick="saveNotes()">Save Notes</button>
+                <button class="btn-cancel" onclick="closeNotesModal()">Cancel</button>
+                <button class="btn-save" id="btnSaveNote" onclick="saveNote()">Save Notes</button>
             </div>
         </div>
     </div>
 
     <script>
         const API_BASE = 'http://127.0.0.1:5005/api';
-        let currentEditingTeam = null;
+        let currentData = null;
         let allNotes = {};
+        let trackedTeams = [];
+        let currentEditingTeam = null;
 
-        function switchTab(tabName) {
+        async function updateAll() {
+            showLoader(true);
+            try {
+                const matchNum = document.getElementById('currentMatch').value;
+                const [scoutRes, notesRes, teamsRes] = await Promise.all([
+                    fetch(`${API_BASE}/scout-data?current_match=${matchNum}`),
+                    fetch(`${API_BASE}/notes`),
+                    fetch(`${API_BASE}/tracked-teams`)
+                ]);
+                currentData = await scoutRes.json();
+                allNotes = await notesRes.json();
+                const teamsData = await teamsRes.json();
+                trackedTeams = Array.isArray(teamsData) ? teamsData : [];
+                renderActiveTab();
+            } catch (error) { console.error(error); }
+            finally { showLoader(false); }
+        }
+
+        function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-
-            if (tabName === 'watchlist') {
-                document.getElementById('tabWatchlist').classList.add('active');
-                document.getElementById('watchlistSection').classList.add('active');
-                fetchData();
-            } else {
-                document.getElementById('tabNotes').classList.add('active');
-                document.getElementById('notesSection').classList.add('active');
-                fetchNotes();
-            }
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+            document.getElementById(`${tab}Section`).classList.add('active');
+            renderActiveTab();
         }
 
-        async function fetchNotes() {
-            const loader = document.getElementById('loader');
-            loader.style.display = 'flex';
-            try {
-                const response = await fetch(`${API_BASE}/notes`);
-                allNotes = await response.json();
-                renderNotes();
-            } catch (error) {
-                console.error('Error fetching notes:', error);
-            } finally {
-                loader.style.display = 'none';
-            }
+        function renderActiveTab() {
+            const activeTab = document.querySelector('.tab.active').id;
+            if (activeTab === 'tabWatchlist') renderWatchlist();
+            if (activeTab === 'tabTeams') renderTeams();
+            if (activeTab === 'tabNotes') renderNotes();
         }
 
-        function renderNotes() {
-            const grid = document.getElementById('notesGrid');
-            const search = document.getElementById('noteSearch').value.toLowerCase();
-            
-            const filteredTeams = Object.keys(allNotes).filter(team => {
-                return team.toLowerCase().includes(search) || allNotes[team].toLowerCase().includes(search);
-            }).sort((a, b) => {
-                // Numeric sort for team numbers
-                const aNum = parseInt(a) || 0;
-                const bNum = parseInt(b) || 0;
-                return aNum - bNum;
-            });
-
-            if (filteredTeams.length === 0) {
-                grid.innerHTML = '<div class="empty-state">No notes found matching your search.</div>';
+        function renderWatchlist() {
+            const container = document.getElementById('watchlistContainer');
+            if (!currentData || !currentData.watchlist.length) {
+                container.innerHTML = '<div class="empty-state">No upcoming matches.</div>';
                 return;
             }
-
-            grid.innerHTML = filteredTeams.map(team => `
-                <div class="note-card">
-                    <div class="note-card-header">
-                        <div class="note-card-team">${team}</div>
-                        <button class="btn-note" onclick="openNotesModal('${team}')">Edit Note</button>
+            container.innerHTML = currentData.watchlist.map(match => `
+                <div class="match-card">
+                    <div class="match-info">
+                        <div class="match-num">Q${match.match_num}</div>
+                        <div class="match-time">${formatTime(match.scheduled)}</div>
                     </div>
-                    <div class="note-content">${allNotes[team]}</div>
+                    <div class="teams-grid">
+                        ${match.teams.map(team => `
+                            <div class="team-pill ${team.relationship.toLowerCase()}">
+                                <div class="team-pill-header">
+                                    <div class="team-pill-num" style="color: ${team.color === 'red' ? 'var(--red)' : 'var(--blue)'}">
+                                        ${team.number}${team.has_notes ? '<span class="note-indicator">📝</span>' : ''}
+                                    </div>
+                                    <button class="btn-note" onclick="openNotesModal('${team.number}')">Notes</button>
+                                </div>
+                                <div class="team-pill-rel ${team.relationship.toLowerCase()}">${team.relationship}</div>
+                                <div class="team-pill-match">Play them in Q${team.our_match}</div>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
             `).join('');
         }
 
-        async function fetchData() {
-            const currentMatch = document.getElementById('currentMatch').value;
-            const loader = document.getElementById('loader');
-            const watchlistEl = document.getElementById('watchlist');
-            const statsBar = document.getElementById('statsBar');
-
-            loader.style.display = 'flex';
-
-            try {
-                const response = await fetch(`${API_BASE}/scout-data?current_match=${currentMatch}`);
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    // Update Stats
-                    statsBar.innerHTML = `
-                        <div class="stat-card">
-                            <div class="stat-val">${data.watchlist.length}</div>
-                            <div class="stat-label">Matches to Watch</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-val">${data.our_schedule.length}</div>
-                            <div class="stat-label">Total Quals</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-val">Spirit</div>
-                            <div class="stat-label">Division</div>
-                        </div>
-                    `;
-
-                    // Update Watchlist
-                    if (data.watchlist.length === 0) {
-                        watchlistEl.innerHTML = '<div class="empty-state">No upcoming matches for future partners or opponents. Good luck!</div>';
-                    } else {
-                        watchlistEl.innerHTML = data.watchlist.map(match => `
-                            <div class="match-card">
-                                <div class="match-info">
-                                    <div class="match-num">Q${match.match_num}</div>
-                                    <div class="match-time">${formatTime(match.scheduled)}</div>
-                                </div>
-                                <div class="teams-grid">
-                                    ${match.teams.map(team => `
-                                        <div class="team-pill ${team.relationship.toLowerCase()}">
-                                            <div class="team-header">
-                                                <div class="team-num" style="color: ${team.color === 'red' ? '#ff5252' : '#448aff'}">
-                                                    ${team.number}
-                                                    ${team.has_notes ? '<span class="note-indicator" title="Has notes">📝</span>' : ''}
-                                                </div>
-                                                <button class="btn-note" onclick="openNotesModal('${team.number}')">Notes</button>
-                                            </div>
-                                            <div class="team-rel ${team.relationship.toLowerCase()}">${team.relationship}</div>
-                                            <div class="team-our-match">You play them in Q${team.our_match}</div>
+        function renderTeams() {
+            const grid = document.getElementById('trackedTeamsGrid');
+            if (!currentData || !currentData.tracked_data.length) {
+                grid.innerHTML = '<div class="empty-state">No teams tracked.</div>';
+                return;
+            }
+            grid.innerHTML = currentData.tracked_data.map(team => `
+                <div class="team-detail-card">
+                    <div class="team-detail-header">
+                        <div><span class="team-id">${team.team}</span><span class="team-rating">TS: ${team.rating}</span></div>
+                        <button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1.5rem;" onclick="removeTrackedTeam('${team.team}')">&times;</button>
+                    </div>
+                    <div class="team-matches-list">
+                        ${team.matches.map(m => {
+                            const ourAlliance = m.team_color === 'red' ? 'red' : 'blue';
+                            const oppAlliance = m.team_color === 'red' ? 'blue' : 'red';
+                            return `
+                                <div class="team-match-row">
+                                    <div class="tm-header">
+                                        <div class="tm-match-num">Q${m.match_num}</div>
+                                        <div class="tm-score-box">
+                                            <span class="score-red">${m.red_score}</span>
+                                            <span style="opacity:0.3">-</span>
+                                            <span class="score-blue">${m.blue_score}</span>
                                         </div>
-                                    `).join('')}
+                                    </div>
+                                    <div class="tm-alliances">
+                                        <div class="tm-alliance">
+                                            <div class="tm-team-pill tracked">
+                                                <span class="tm-team-num" style="color:var(--${m.team_color})">${team.team}</span>
+                                                <span class="tm-team-ts">${team.rating}</span>
+                                            </div>
+                                            ${m.partner ? `
+                                                <div class="tm-team-pill">
+                                                    <span class="tm-team-num" style="color:var(--${m.team_color})">${m.partner.number}${m.partner.has_notes ? '📝' : ''}</span>
+                                                    <span class="tm-team-ts">${m.partner.rating}</span>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                        <div class="tm-vs">VS</div>
+                                        <div class="tm-alliance">
+                                            ${m.opponents.map(opp => `
+                                                <div class="tm-team-pill">
+                                                    <span class="tm-team-num" style="color:var(--${oppAlliance})">${opp.number}${opp.has_notes ? '📝' : ''}</span>
+                                                    <span class="tm-team-ts">${opp.rating}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        `).join('');
-                    }
-                }
-            } catch (error) {
-                console.error('Fetch error:', error);
-                watchlistEl.innerHTML = '<div class="empty-state" style="color: #ff1744">Error connecting to backend. Make sure scout_tracker.py is running.</div>';
-            } finally {
-                loader.style.display = 'none';
-            }
+                            `;
+                        }).join('')}
+                    </div>
+                    <button class="btn-save" style="width:100%" onclick="openNotesModal('${team.team}')">+ Add Team Note</button>
+                </div>
+            `).join('');
         }
 
-        function formatTime(isoStr) {
-            if (!isoStr) return 'TBD';
-            const date = new Date(isoStr);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        function renderNotes() {
+            const container = document.getElementById('notesContainer');
+            const search = document.getElementById('noteSearch').value.toLowerCase();
+            const filtered = Object.keys(allNotes).filter(t => t.toLowerCase().includes(search) || allNotes[t].toLowerCase().includes(search)).sort();
+            if (!filtered.length) { container.innerHTML = '<div class="empty-state">No notes found.</div>'; return; }
+            container.innerHTML = filtered.map(team => `
+                <div class="note-card">
+                    <div class="team-detail-header" style="border:none; margin-bottom:10px;">
+                        <div class="team-id" style="font-size: 1.4rem;">${team}</div>
+                        <button class="btn-note" onclick="openNotesModal('${team}')">Edit</button>
+                    </div>
+                    <div style="white-space: pre-wrap; line-height: 1.5; color: var(--text);">${allNotes[team]}</div>
+                </div>
+            `).join('');
         }
 
-        // Notes Logic
-        async function openNotesModal(teamNumber) {
-            currentEditingTeam = teamNumber;
-            
-            // If teamNumber is empty, it's a new team
-            if (!teamNumber) {
-                const manualTeam = prompt("Enter Team Number:");
-                if (!manualTeam) return;
-                currentEditingTeam = manualTeam.toUpperCase();
-            }
-
-            document.getElementById('modalTeamNum').innerText = currentEditingTeam;
-            document.getElementById('notesArea').value = 'Loading...';
-            
-            const modal = document.getElementById('notesModal');
-            modal.style.display = 'flex';
-            setTimeout(() => modal.classList.add('active'), 10);
-
-            try {
-                const response = await fetch(`${API_BASE}/notes`);
-                allNotes = await response.json();
-                document.getElementById('notesArea').value = allNotes[currentEditingTeam] || '';
-            } catch (error) {
-                console.error('Error fetching notes:', error);
-                document.getElementById('notesArea').value = 'Error loading notes.';
-            }
+        async function addTrackedTeam() {
+            const input = document.getElementById('newTeamInput');
+            const team = input.value.trim().toUpperCase();
+            if (!Array.isArray(trackedTeams)) trackedTeams = [];
+            if (!team || trackedTeams.includes(team)) return;
+            trackedTeams.push(team);
+            input.value = '';
+            await fetch(`${API_BASE}/tracked-teams`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teams: trackedTeams }) });
+            switchTab('teams');
+            updateAll();
         }
 
-        function closeNotesModal() {
-            const modal = document.getElementById('notesModal');
-            modal.classList.remove('active');
-            
-            // Reset save button state
-            const saveBtn = document.querySelector('.btn-save');
-            saveBtn.innerText = 'Save Notes';
-            saveBtn.disabled = false;
-            
-            setTimeout(() => modal.style.display = 'none', 300);
-            currentEditingTeam = null;
+        async function removeTrackedTeam(team) {
+            trackedTeams = trackedTeams.filter(t => t !== team);
+            await fetch(`${API_BASE}/tracked-teams`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teams: trackedTeams }) });
+            updateAll();
         }
 
-        async function saveNotes() {
-            if (!currentEditingTeam) return;
+        function openNotesModal(team) {
+            if (!team) { team = prompt("Enter Team Number:"); if (!team) return; team = team.toUpperCase(); }
+            currentEditingTeam = team;
+            document.getElementById('modalTeamNum').innerText = team;
+            document.getElementById('notesArea').value = allNotes[team] || '';
+            document.getElementById('notesModal').classList.add('active');
+            document.getElementById('btnSaveNote').innerText = "Save Notes";
+        }
 
+        function closeNotesModal() { document.getElementById('notesModal').classList.remove('active'); }
+
+        async function saveNote() {
             const note = document.getElementById('notesArea').value;
-            const saveBtn = document.querySelector('.btn-save');
-            
-            saveBtn.innerText = 'Saving...';
-            saveBtn.disabled = true;
-
+            const btn = document.getElementById('btnSaveNote');
+            btn.innerText = "Saving...";
             try {
-                const response = await fetch(`${API_BASE}/notes`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ team: currentEditingTeam, note: note })
-                });
-
-                if (response.ok) {
-                    saveBtn.innerText = 'Saved!';
-                    setTimeout(() => {
-                        closeNotesModal();
-                        if (document.getElementById('notesSection').classList.contains('active')) {
-                            fetchNotes();
-                        } else {
-                            fetchData(); // Refresh to update note indicators
-                        }
-                    }, 500);
-                } else {
-                    alert('Failed to save note.');
-                    saveBtn.innerText = originalText;
-                    saveBtn.disabled = false;
-                }
-            } catch (error) {
-                console.error('Error saving note:', error);
-                alert('Error saving note.');
-                saveBtn.innerText = originalText;
-                saveBtn.disabled = false;
-            }
+                const res = await fetch(`${API_BASE}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ team: currentEditingTeam, note: note }) });
+                if (res.ok) { allNotes[currentEditingTeam] = note; btn.innerText = "Saved!"; setTimeout(() => { closeNotesModal(); renderActiveTab(); }, 500); }
+            } catch (e) { btn.innerText = "Error!"; }
         }
 
-        // Auto-fetch on enter
-        document.getElementById('currentMatch').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') fetchData();
-        });
+        function formatTime(iso) { return iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'TBD'; }
+        function showLoader(show) { document.getElementById('loader').style.display = show ? 'flex' : 'none'; }
+
+        updateAll();
     </script>
 </body>
 </html>
